@@ -24,12 +24,12 @@ import utils.algor2 as algor2
 
 
 
-TIME_SLOT_LENGTH = 1  # ms
+TIME_SLOT_LENGTH = 1  # 단위: ms
 SIMULATION_ITER_MAX = 1000 # max number of time slot
 TASK_GENERATE_RATE = 30 # one task for three time slots
 MEM_CAPACITY = 500*1_000_000 # 500 MB (use any number)
 HDD_CAPACITY = 1.5*1_000_000_000 # 1.5GB (use any number)
-num_tasks_generated = 0
+num_tasks_generated = 0 
 MAX_NUM_TASKS_TO_GENERATE = 3
 
 # initialize
@@ -62,17 +62,18 @@ class Task:
         self.pred_processed_time = self.predict_processed_time()
         self.serving_worker_number = None
         self.wait_time = float(0)
-        # record how long time until receive response
+        # record how long time until receive response  응답을 받을 때까지의 시간 기록
         self.until_response_time = 0
 
         # resource usage
         self.hdd_usage = 0
         self.mem_usage = 0
 
-        # 累计奖励
+        # 누적 보상
         self.reward = 0
 
 
+    # xgboost를 사용해 처리 시간을 예측합니다.
     def predict_processed_time(self):
         data = xgboost.DMatrix([[self.request_data.get('number')]])
         prediction = xgboost_proc_model.predict(data)
@@ -109,6 +110,7 @@ class Worker:
         self.session = None
  
 
+        # SSH 클라이언트 설정
         self.ssh_client = paramiko.SSHClient()
         self.ssh_hostname = self.ip
         self.ssh_password = 'raspberrypi'
@@ -133,6 +135,8 @@ class Worker:
             if self.wait_time < 0:
                 self.wait_time = 0
 
+
+    # 하드 디스크 사용량 처리
     async def hdd_usage_handle(self):
         cmd = """df -B1"""
         try:
@@ -152,7 +156,7 @@ class Worker:
                 self.hdd_usage = total_blocks
                 await asyncio.sleep(0.3)
         
-        # Stop with error or interrupt
+        # Stop with error or interrupt # 오류 또는 중단 발생 시 종료
         except asyncio.CancelledError:
             print("Task was cancelled.")
             raise
@@ -165,6 +169,7 @@ class Worker:
             self.ssh_client.close()
 
 
+    # 메모리 사용량 처리
     async def mem_usage_handle(self):
         cmd = """cat /proc/meminfo"""
         try:
@@ -172,14 +177,14 @@ class Worker:
                 stdin, stdout, stderr = self.ssh_client.exec_command(command=cmd)
                 output = stdout.read().decode()
                 
-                # 解析 /proc/meminfo 输出，提取内存使用情况
+                # /proc/meminfo 출력에서 메모리 사용량 추출
                 mem_info = {}
                 for line in output.splitlines():
                     parts = line.split(':')
                     if len(parts) == 2:
                         key = parts[0].strip()
-                        value = parts[1].strip().split()[0]  # 提取值，单位为 KB
-                        mem_info[key] = int(value) * 1024  # 将 KB 转为字节
+                        value = parts[1].strip().split()[0]  # 값 추출, 단위는 KB
+                        mem_info[key] = int(value) * 1024  # KB를 byte로 변환
 
                 mem_total = mem_info.get('MemTotal', 0)
                 mem_free = mem_info.get('MemFree', 0)
@@ -191,7 +196,7 @@ class Worker:
                 # print(f"Available Memory: {mem_available} bytes")
                 # print(f"Used Memory: {mem_used} bytes")
 
-                # 等待 1 秒钟再监测
+                 # 300ms 대기 후 다시 체크
                 self.mem_usage = mem_used
                 await asyncio.sleep(0.3)
 
@@ -207,6 +212,7 @@ class Worker:
 
 UPDATE_INTERVAL = 0.001
 
+# 3대 서버
 WORKERS = [
     Worker(ip='192.168.0.150', port=8080, update_interval=UPDATE_INTERVAL),
     Worker(ip='192.168.0.151', port=8080, update_interval=UPDATE_INTERVAL),
@@ -235,27 +241,25 @@ async def sum_proccessing_cnt():
 
 
 
-# multi IP addresses
+# multi IP addresses   다중 IP 주소를 위한 작업자 선택 알고리즘
 def choose_url_algorithm(name=None, **kwargs):
     global WORKERS, ROUND_ROUBIN_WORKER_INDEX, EPISODE
     # use params from kwargs
     new_task: Task = kwargs.get('new_task')
     response_time = [ worker.wait_time + new_task.pred_processed_time for worker in WORKERS ]
 
-    if not name or name == 'round-robin': # round robin
+    if not name or name == 'round-robin': # round robin 알고리즘
         worker_index = ROUND_ROUBIN_WORKER_INDEX
         ROUND_ROUBIN_WORKER_INDEX = (ROUND_ROUBIN_WORKER_INDEX + 1) % len(WORKERS)
         return WORKERS[worker_index]
     
-    elif name == 'dqn':
-        # 这里将原来的负向响应时间替换为正向奖励累加
+    elif name == 'dqn':    # DQN 알고리즘
         epsilon = dqn.epsilon_start
         # choose worker
         worker_index = dqn.DQN_Model(response_time, new_task, dqn.epsilon_start, WORKERS)
-        reward = dqn.get_reward(response_time[worker_index], worker_index)  # 使用正向奖励函数
-        new_task.reward += reward  # 累加正的奖励
-        # 保存每个 episode 的累计奖励
-        # 衰减 epsilon
+        reward = dqn.get_reward(response_time[worker_index], worker_index)  # 긍정적인 보상 함수 사용
+        new_task.reward += reward  # 보상 누적
+
         epsilon = max(dqn.epsilon_end, epsilon * dqn.epsilon_decay)
 
         if EPISODE_ADD_CHECK == 0:
@@ -267,17 +271,19 @@ def choose_url_algorithm(name=None, **kwargs):
 
         return WORKERS[worker_index]
 
-    elif name == 'algor1':
+    elif name == 'algor1':    # 알고리즘 1
         # choose worker
-        algor1.Optimization_Model1(response_time, new_task, WORKERS)
+        worker_index = algor1.Optimization_Model1(response_time, new_task, WORKERS)
+        return WORKERS[worker_index]
 
     else:
-        if name == 'algor2':
+        if name == 'algor2':  # 알고리즘 2  (분배 비율의 표준평차 최소화)
             # choose worker
-            algor2.Optimization_Model2(response_time, new_task, WORKERS)
+            worker_index = algor2.Optimization_Model2(response_time, new_task, WORKERS)
+            return WORKERS[worker_index]
 
 
-
+# 새 task 처리
 async def handle_new_task(request_data: dict, headers: dict):
     global WORKERS
     new_task = Task(request_data=request_data, headers=headers)
@@ -311,7 +317,7 @@ async def handle_new_task(request_data: dict, headers: dict):
         chosen_worker.current_task = new_task
 
         # add waiting time
-        # 将预测处理时间加入 wait_time
+        # 예측 처리 시간을 wait_time에 추가
 
         async with chosen_worker.lock:
             chosen_worker.processing_cnt += 1
@@ -326,19 +332,19 @@ async def handle_new_task(request_data: dict, headers: dict):
         exit(1)
     
 
-# handle request main function
+# handle request main function  # 요청 처리 메인 함수
 async def request_handler(request: web.Request):
     try:
         # received time
         manager_received_timestamp = time.time()
         logging.info(f"received time: {manager_received_timestamp}\n")
 
-        # generate task and put into manager tasks queue
+        # generate task and put into manager tasks queue    task 생성 및 매니저 task 큐에 넣기
         request_data = await request.json()
         chosen_worker, new_task = await handle_new_task(request_data, request.headers)
         
         processing_cnt = chosen_worker.processing_cnt
-        # fetch queue first task and send
+        # fetch queue first task and send   큐의 첫 번째 task 가져오기 및 전송
         
         print('-' * 40, end='\n')
         print(f"Chosen worker: {dir(chosen_worker)}")
@@ -354,11 +360,11 @@ async def request_handler(request: web.Request):
 
         await chosen_worker.tasks_queue.get()
 
-        # send this task to worker node
+        # send this task to worker node  
         async with chosen_worker.session.post(url=chosen_worker.url, json=new_task.request_data, headers=new_task.headers) as response:
             data: dict = await response.json()
 
-            # 记录任务结束时间
+            # task 종료 시간을 기록
 
             async with chosen_worker.lock:
                 chosen_worker.finished_cnt += 1
@@ -368,7 +374,7 @@ async def request_handler(request: web.Request):
             else:
                 data["success"] = 1
 
-            # update response data
+            # update response datas
             data["chosen_ip"] = chosen_worker.ip
             data['processed_time'] = data.pop("real_process_time")
             data['jobs_on_worker_node'] = processing_cnt
@@ -377,7 +383,6 @@ async def request_handler(request: web.Request):
             data['before_forward_time'] = before_forward_time
             data['pred_task_wait_time'] = new_task.wait_time
             data['before_forward_timestamp'] = before_forward_timestamp
-
             data['rewards'] = new_task.reward
             
             logging.info(f'{"-" * 40}\n')
@@ -399,11 +404,13 @@ async def request_handler(request: web.Request):
         return web.json_response({"error": error_message, "data": data}, status=500)
 
 
+# 서버 종료 시 처리 함수
 async def on_shutdown(app):
     global WORKERS
     for worker in WORKERS:
         await worker.close_session()
 
+# 서버 애플리케이션 초기화
 async def server_app_init():
     global WORKERS
     for worker in WORKERS:
@@ -423,6 +430,9 @@ async def server_app_init():
     app.on_cleanup.append(on_shutdown)
 
     return app
+
+
+# 서버 실행
 def server_run():
     try:
         app = server_app_init()
