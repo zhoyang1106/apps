@@ -11,6 +11,8 @@ from xgboost import Booster
 import xgboost
 import paramiko
 import random
+from sklearn.linear_model import LinearRegression
+import joblib
 
 
 TIME_SLOT_LENGTH = 1  # ms
@@ -33,6 +35,8 @@ process_model_path = ("/home/pi/apps/manage-server/models/xgb_number_time.json")
 xgboost_proc_model = Booster()
 xgboost_proc_model.load_model(process_model_path)
 
+# model_file = Path.cwd() / 'manage-server' / 'models' / 'number_time_LinearR.joblib'
+# linear_model: LinearRegression = joblib.load(model_file)
 
 # LOG file
 log_path = Path.cwd() / 'log' / f"{__file__}.log"
@@ -58,10 +62,25 @@ class Task:
         self.hdd_usage = 0
         self.mem_usage = 0
 
+    # xgboost
     def predict_processed_time(self):
         data = xgboost.DMatrix([[self.request_data.get('number')]])
         prediction = xgboost_proc_model.predict(data)
         return float(prediction[0])
+
+
+    # linear
+    # def predict_processed_time(self):
+        
+    #     data = [[self.request_data.get('number')]]
+    #     prediction = linear_model.predict(data)
+
+    #     # # linear
+    #     # data = self.request_data.get('number')
+    #     # predict = linear_model.coef_[0] * data + linear_model.intercept_
+    #     # # return prediction[0]
+
+    #     return predict
 
 class Worker:
     def __init__(self, **kwargs):
@@ -117,6 +136,7 @@ class Worker:
             self.wait_time -= self.update_interval
             if self.wait_time < 0:
                 self.wait_time = 0
+
 
     async def hdd_usage_handle(self):
         cmd = """df -B1"""
@@ -190,13 +210,14 @@ class Worker:
             self.ssh_client.close()
             print("SSH connection closed.")
 
-UPDATE_INTERVAL = 0.001
+UPDATE_INTERVAL = 0.02
 
 WORKERS = [
     Worker(ip='192.168.0.150', port=8080, update_interval=UPDATE_INTERVAL),
     Worker(ip='192.168.0.151', port=8080, update_interval=UPDATE_INTERVAL),
     Worker(ip='192.168.0.152', port=8080, update_interval=UPDATE_INTERVAL),
 ]
+
 
 ROUND_ROUBIN_WORKER_INDEX = 0
 
@@ -206,30 +227,64 @@ async def start_sessions():
         await worker.start_session()
 
 
+# use fibonacci heap to decrease proposed time finding time
+# from fibonacci_heap_mod import Fibonacci_heap
+# FIB_HEAP = Fibonacci_heap()
+# FIB_WORKERS = {}
+# for worker in WORKERS:
+#     node = FIB_HEAP.enqueue(worker, worker.wait_time) # insert node into heap
+#     FIB_WORKERS[worker] = node
+
+# def get_proposed_worker() -> Worker:
+#     min_node = FIB_HEAP.min()                    # find min node
+#     return min_node.get_value() if min_node else None        # return min node -> worker
+
+# # increase prioprity number for worker -> wait time == prioprity
+# def update_worker_heap(worker, new_wait_time):
+#     node = FIB_WORKERS[worker]  
+
+#     FIB_HEAP.delete(node)       # delete node from heap
+#     new_node = FIB_HEAP.enqueue(worker, new_wait_time)  # insert node into heap
+    
+#     FIB_WORKERS[worker] = new_node
+
+# def update_proposed_worker():
+#     min_node = FIB_HEAP.dequeue_min()
+#     return min_node.get_value() if min_node else None
+
+
 # multi IP addresses
 def choose_url_algorithm(name=None, **kwargs):
     global WORKERS, ROUND_ROUBIN_WORKER_INDEX
-    # use params from kwargs
+    chosen_worker = None
     new_task: Task = kwargs.get('new_task')
-    response_time = [ (worker.wait_time + new_task.pred_processed_time, worker) for worker in WORKERS ]
+    # use params from kwargs
 
     if not name or name == 'round-robin': # round robin
+        r_start = time.time()
         worker_index = ROUND_ROUBIN_WORKER_INDEX
         ROUND_ROUBIN_WORKER_INDEX = (ROUND_ROUBIN_WORKER_INDEX + 1) % len(WORKERS)
-        return WORKERS[worker_index]
+        chosen_worker = WORKERS[worker_index]
+        logging.info(f"round-robin ran time: {time.time() - r_start} s")
     
-    elif name == 'shortest':
-        shortest_time = float("inf")
-        chosen_worker = None
-        for item in response_time:
-            if item[0] < shortest_time:
-                shortest_time = item[0]
-                chosen_worker = item[1]
+    elif name == 'proposed':
+        s_start = time.time()
+        # loop proposed function
+        worker_index = min(enumerate(worker.wait_time for worker in WORKERS), key=lambda x: x[1])[0]
+        chosen_worker = WORKERS[worker_index]
 
-        if chosen_worker:
-            return chosen_worker
-        else:
-            return WORKERS[0]
+        logging.info(f"proposed ran time: {time.time() - s_start} s")
+        # # fib heap
+        # chosen_worker = get_proposed_worker()
+        # update_worker_heap(chosen_worker, chosen_worker.wait_time + new_task.pred_processed_time)
+
+    logging.info("-- " * 10)
+    logging.info(f"new task process time: {new_task.pred_processed_time} s")
+    for worker in WORKERS:
+        logging.info(f"[ {worker.wait_time} ]") 
+    
+    random_worker_index = int(random.randint(0, 2))
+    return chosen_worker if chosen_worker else WORKERS[random_worker_index]
 
 
 async def handle_new_task(request_data: dict, headers: dict):
@@ -253,7 +308,7 @@ async def handle_new_task(request_data: dict, headers: dict):
             algorithm_name = new_task.headers.get('algo_name')
             logging.info(algorithm_name)
             chosen_worker = choose_url_algorithm(name=algorithm_name, new_task=new_task)
-        
+
         if not chosen_worker:
             raise Exception("chosen worker is None")
 
@@ -262,13 +317,10 @@ async def handle_new_task(request_data: dict, headers: dict):
         new_task.serving_worker_number = WORKERS.index(chosen_worker)
         
         new_task.wait_time = chosen_worker.wait_time
-        
-        chosen_worker.current_task = new_task
-
-        # add waiting time
-        # 将预测处理时间加入 wait_time
+        chosen_worker.wait_time += new_task.pred_processed_time     
 
         async with chosen_worker.lock:
+            chosen_worker.current_task = new_task
             chosen_worker.processing_cnt += 1
 
         # put into worker queue
@@ -295,13 +347,13 @@ async def request_handler(request: web.Request):
         processing_cnt = chosen_worker.processing_cnt
         # fetch queue first task and send
         
-        print('-' * 40, end='\n')
-        print("Before", time.time(), f"Request number {new_task.request_data.get('number')}")
-        print(f"task prediction process time {new_task.pred_processed_time}")
-        print(f"worker node nummber:{new_task.serving_worker_number}")
-        print("processing_cnt:", chosen_worker.processing_cnt)
-        print("task wait time", new_task.wait_time)
-        print("total predict response time", new_task.wait_time + new_task.pred_processed_time)
+        logging.info(f'{"-" * 40}\n')
+        logging.info(f"Before {time.time()} Request number {new_task.request_data.get('number')}")
+        logging.info(f"task prediction process time {new_task.pred_processed_time}")
+        logging.info(f"worker node nummber:{new_task.serving_worker_number}")
+        logging.info(f"processing_cnt: {chosen_worker.processing_cnt}")
+        logging.info(f"task wait time: {new_task.wait_time}")
+        logging.info(f"total predict response time: {new_task.wait_time + new_task.pred_processed_time}")
         total_response_time_prediction = new_task.wait_time + new_task.pred_processed_time
         before_forward_timestamp = time.time()
         before_forward_time = before_forward_timestamp - manager_received_timestamp
@@ -313,7 +365,6 @@ async def request_handler(request: web.Request):
             data: dict = await response.json()
 
             # 记录任务结束时间
-
             async with chosen_worker.lock:
                 chosen_worker.finished_cnt += 1
                 chosen_worker.processing_cnt -= 1
