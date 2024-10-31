@@ -1,0 +1,19 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        
+        {
+            "name": "Python: Current File",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${file}",
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}", // 设置启动目录为工作区目录
+            "args": [], // 启动参数
+            "env": {
+                // 环境变量
+                "PYTHONPATH": "${workspaceFolder}",
+            }
+        }
+    ]
+}
