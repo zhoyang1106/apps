@@ -8,11 +8,12 @@ from asyncio import Queue
 import logging
 from pathlib import Path
 from xgboost import Booster
-import xgboost
+import xgboost as xgb
 import paramiko
 import random
 from sklearn.linear_model import LinearRegression
 import joblib
+from concurrent.futures import ProcessPoolExecutor
 
 
 TIME_SLOT_LENGTH = 1  # ms
@@ -29,10 +30,13 @@ task_queues_in_processing = [[] for w in range(NUM_WORKERS)] # tasks that are be
 tasks_done_processing = []  # tasks that are done processing
 
 
+SHORTEST_PENDING_TIME_WORKER = None
+
+
 
 # xgboost model
-process_model_path = ("/home/pi/apps/manage-server/models/xgb_number_time.json")
-xgboost_proc_model = Booster()
+process_model_path = ("/home/pi/apps/manage-server/models/xgb_number_time_linear.json")
+xgboost_proc_model = xgb.XGBRegressor()
 xgboost_proc_model.load_model(process_model_path)
 
 # model_file = Path.cwd() / 'manage-server' / 'models' / 'number_time_LinearR.joblib'
@@ -64,7 +68,8 @@ class Task:
 
     # xgboost
     def predict_processed_time(self):
-        data = xgboost.DMatrix([[self.request_data.get('number')]])
+        # data = xgb.DMatrix([[self.request_data.get('number')]])
+        data = [[self.request_data.get('number')]]
         prediction = xgboost_proc_model.predict(data)
         return float(prediction[0])
 
@@ -227,35 +232,16 @@ async def start_sessions():
         await worker.start_session()
 
 
-# use fibonacci heap to decrease proposed time finding time
-# from fibonacci_heap_mod import Fibonacci_heap
-# FIB_HEAP = Fibonacci_heap()
-# FIB_WORKERS = {}
-# for worker in WORKERS:
-#     node = FIB_HEAP.enqueue(worker, worker.wait_time) # insert node into heap
-#     FIB_WORKERS[worker] = node
-
-# def get_proposed_worker() -> Worker:
-#     min_node = FIB_HEAP.min()                    # find min node
-#     return min_node.get_value() if min_node else None        # return min node -> worker
-
-# # increase prioprity number for worker -> wait time == prioprity
-# def update_worker_heap(worker, new_wait_time):
-#     node = FIB_WORKERS[worker]  
-
-#     FIB_HEAP.delete(node)       # delete node from heap
-#     new_node = FIB_HEAP.enqueue(worker, new_wait_time)  # insert node into heap
-    
-#     FIB_WORKERS[worker] = new_node
-
-# def update_proposed_worker():
-#     min_node = FIB_HEAP.dequeue_min()
-#     return min_node.get_value() if min_node else None
+def update_shortest_pending_time_worker():
+    global SHORTEST_PENDING_TIME_WORKER
+    while True:
+        SHORTEST_PENDING_TIME_WORKER = min(enumerate(worker.wait_time for worker in WORKERS), key=lambda x: x[1])[0]
+        time.sleep(0.1)
 
 
 # multi IP addresses
 def choose_url_algorithm(name=None, **kwargs):
-    global WORKERS, ROUND_ROUBIN_WORKER_INDEX
+    global WORKERS, ROUND_ROUBIN_WORKER_INDEX, SHORTEST_PENDING_TIME_WORKER
     chosen_worker = None
     new_task: Task = kwargs.get('new_task')
     # use params from kwargs
@@ -270,13 +256,10 @@ def choose_url_algorithm(name=None, **kwargs):
     elif name == 'proposed':
         s_start = time.time()
         # loop proposed function
-        worker_index = min(enumerate(worker.wait_time for worker in WORKERS), key=lambda x: x[1])[0]
-        chosen_worker = WORKERS[worker_index]
+        chosen_worker = SHORTEST_PENDING_TIME_WORKER
 
         logging.info(f"proposed ran time: {time.time() - s_start} s")
-        # # fib heap
-        # chosen_worker = get_proposed_worker()
-        # update_worker_heap(chosen_worker, chosen_worker.wait_time + new_task.pred_processed_time)
+        
 
     logging.info("-- " * 10)
     logging.info(f"new task process time: {new_task.pred_processed_time} s")
@@ -414,6 +397,12 @@ async def server_app_init():
         asyncio.create_task(worker.mem_usage_handle())
         asyncio.create_task(worker.update_wait_time())
 
+    loop = asyncio.get_running_loop()
+    exec =  ProcessPoolExecutor()
+    
+    loop.run_in_executor(exec, update_shortest_pending_time_worker)
+
+    print("Start min pending time worker update")
     print("SSH connect started")
     print("Workers' timer has started")
 
