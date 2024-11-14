@@ -11,8 +11,10 @@ import matplotlib.pyplot as plt
 TIME_SLOT_LENGTH = 1  # ms
 SIMULATION_ITER_MAX = 1000 # max number of time slot
 TASK_GENERATE_RATE = 30 # one task for three time slots
-MEM_CAPACITY = 500*1_000_000 # 500 MB (use any number)
-HDD_CAPACITY = 1.5*1_000_000_000 # 1.5GB (use any number)
+# MEM_CAPACITY = 500*1_000_000 # 500 MB (use any number)
+# HDD_CAPACITY = 1.5*1_000_000_000 # 1.5GB (use any number)
+MEM_CAPACITY = 900*1_000_000 # 500 MB (use any number)       ## 서버의 실제값
+HDD_CAPACITY = 14.5*1_000_000_000 # 1.5GB (use any number)   ## 서버의 실제값
 num_tasks_generated = 0
 MAX_NUM_TASKS_TO_GENERATE = 3
 
@@ -140,7 +142,7 @@ def get_state(Task, WORKERS):
     for worker in WORKERS:
         hdd_usage = worker.hdd_usage + Task.hdd_usage
         mem_usage = worker.mem_usage + Task.mem_usage
-        if hdd_usage <= HDD_CAPACITY and mem_usage <= MEM_CAPACITY:
+        if hdd_usage <= worker.max_hdd_usage and mem_usage <= worker.max_mem_usage:
             state.append(hdd_usage)
             state.append(mem_usage)
 

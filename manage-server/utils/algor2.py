@@ -10,25 +10,17 @@ from gurobipy import GRB
 
 
 
-TIME_SLOT_LENGTH = 1  # ms
-SIMULATION_ITER_MAX = 1000 # max number of time slot
-TASK_GENERATE_RATE = 30 # one task for three time slots
-MEM_CAPACITY = 500*1_000_000 # 500 MB (use any number)
-HDD_CAPACITY = 1.5*1_000_000_000 # 1.5GB (use any number)
-num_tasks_generated = 0
-MAX_NUM_TASKS_TO_GENERATE = 3
 
-# initialize
+# MEM_CAPACITY = 500*1_000_000 # 500 MB (use any number)
+# HDD_CAPACITY = 1.5*1_000_000_000 # 1.5GB (use any number)
+MEM_CAPACITY = 900*1_000_000 # 500 MB (use any number)       ## 서버의 실제값
+HDD_CAPACITY = 14.5*1_000_000_000 # 1.5GB (use any number)   ## 서버의 실제값
 NUM_WORKERS = 3
-task_queues_in_processing = [[] for w in range(NUM_WORKERS)] # tasks that are being processed
-tasks_done_processing = []  # tasks that are done processing
-
 
 
 
 
 def Optimization_Model2(response_time, Task, WORKERS):
-
     # Create model
     model = gp.Model("server_optimization")
 
@@ -47,26 +39,45 @@ def Optimization_Model2(response_time, Task, WORKERS):
     mem_usage_std_max = 0.166666667
     response_time_max = max(response_time)
 
-    hdd_usage_std = gp.quicksum(((Task.hdd_usage * x[worker] + worker.hdd_usage) - (Task.hdd_usage + worker.hdd_usage) / NUM_WORKERS) ** 2 for worker in WORKERS)
-    mem_usage_std = gp.quicksum(((Task.mem_usage * x[worker] + worker.mem_usage) - (Task.mem_usage + worker.mem_usage) / NUM_WORKERS) ** 2 for worker in WORKERS)
+    hdd_usage_std = gp.quicksum(((Task.hdd_usage * x[worker.id] + worker.hdd_usage) - (Task.hdd_usage + worker.hdd_usage) / NUM_WORKERS) ** 2 for worker in WORKERS)
+    mem_usage_std = gp.quicksum(((Task.mem_usage * x[worker.id] + worker.mem_usage) - (Task.mem_usage + worker.mem_usage) / NUM_WORKERS) ** 2 for worker in WORKERS)
 
-    model.setObjective(alpha / hdd_usage_std_max * hdd_usage_std + beta / mem_usage_std_max * mem_usage_std + gamma / response_time_max * gp.quicksum(response_time[worker] * x[worker] for worker in WORKERS), GRB.MINIMIZE)
+    model.setObjective(alpha / hdd_usage_std_max * hdd_usage_std + beta / mem_usage_std_max * mem_usage_std + gamma / response_time_max * gp.quicksum(response_time[worker.id] * x[worker.id] for worker in WORKERS), GRB.MINIMIZE)
 
     # Add constraint
-    model.addConstr(gp.quicksum(x[worker] for worker in WORKERS) == 1, "c1")
+    model.addConstr(gp.quicksum(x[worker.id] for worker in WORKERS) == 1, "c1")
     for worker in WORKERS:
     # maximum value
-        model.addConstr(worker.hdd_usage + Task.hdd_usage * x[i] <= HDD_CAPACITY, f"c2")
-        model.addConstr(worker.mem_usage + Task.mem_usage * x[i] <= MEM_CAPACITY, f"c3")
+        model.addConstr(worker.hdd_usage + Task.hdd_usage * x[worker.id] <= worker.max_hdd_usage)
+        model.addConstr(worker.mem_usage + Task.mem_usage * x[worker.id] <= worker.max_mem_usage)
 
     # Optimize modeal
     model.optimize()
 
     # Print results
+    worker_index = 5
     if model.status == GRB.OPTIMAL:
-        for worker in WORKERS:
-            total_load = sum(x[worker].X)
-            if x[worker].X / total_load != 0:
-                return worker
+        # 获取所有 x[worker.id].X 的值
+        x_values = [x[worker.id].X for worker in WORKERS]
+
+        # 进行最小-最大归一化
+        x_min = min(x_values)
+        x_max = max(x_values)
+
+        if x_max > x_min:  # 防止分母为0
+            normalized_x_values = [(x_val - x_min) / (x_max - x_min) for x_val in x_values]
+        else:
+            normalized_x_values = [0 for _ in x_values]  # 如果所有值相等，则归一化为 0
+
+        # 输出归一化结果并确定选定的 worker
+        for i, worker in enumerate(WORKERS):
+            if normalized_x_values[i] == 1.0:  # 选择归一化后非零的 worker
+                worker_index = i
+                print(i, worker_index)
+
+    return worker_index
+
+
+
 
 

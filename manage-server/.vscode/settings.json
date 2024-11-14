@@ -3,4 +3,27 @@
     "python.analysis.autoImportCompletions": true,
     "python.terminal.executeInFileDir": false,
     "terminal.integrated.cwd": "${workspaceFolder}",
+    
+    "extensions.autoUpdate": false,
+    "extensions.ignoreRecommendations": true,
+    
+    "workbench.activityBar.visible": false,
+    "workbench.statusBar.visible": false,
+    
+    "workbench.editor.restoreViewState": false,
+    "workbench.startupEditor": "none",  
+    
+    "workbench.colorTheme": "Default Light+",
+    "editor.cursorBlinking": "solid",
+
+    "python.analysis.exclude": ["**/.venv/**", "*.log"],
+    "files.watcherExclude": {
+        "**/.git/**": true
+    },
+
+
+    "extensions.experimental.affinity": {
+    "ms-python.vscode-pylance": "workspace",
+    "another-extension-id": "workspace"
+}
 }

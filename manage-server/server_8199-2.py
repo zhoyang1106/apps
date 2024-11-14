@@ -236,7 +236,7 @@ def update_shortest_pending_time_worker():
     global SHORTEST_PENDING_TIME_WORKER
     while True:
         SHORTEST_PENDING_TIME_WORKER = min(enumerate(worker.wait_time for worker in WORKERS), key=lambda x: x[1])[0]
-        time.sleep(0.1)
+        # time.sleep(0.1)
 
 
 # multi IP addresses
