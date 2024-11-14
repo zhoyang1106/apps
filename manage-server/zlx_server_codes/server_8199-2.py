@@ -32,7 +32,7 @@ tasks_done_processing = []  # tasks that are done processing
 
 SHORTEST_PENDING_TIME_WORKER = None
 
-PARENT_DIR = Path(__file__).parent
+PARENT_DIR = Path(__file__).parent.parent
 
 # xgboost model
 process_model_path = (PARENT_DIR / "models" / "xgb_number_time_linear.json")
