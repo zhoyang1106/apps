@@ -34,8 +34,10 @@ xgboost_proc_model = Booster()
 xgboost_proc_model.load_model(process_model_path)
 
 
+PARENT_DIR = Path(__file__).parent.parent
+
 # LOG file
-log_path = Path.cwd() / 'log' / f"{__file__}.log"
+log_path = PARENT_DIR / 'logs' / f"{Path(__file__).stem}.log"
 print("Log Path:", log_path)
 logging.basicConfig(filename=log_path, level=logging.INFO, filemode='w')
 

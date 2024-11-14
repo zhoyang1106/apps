@@ -33,7 +33,6 @@ tasks_done_processing = []  # tasks that are done processing
 SHORTEST_PENDING_TIME_WORKER = None
 LEATEST_CONNECTOR_WORKER = None
 
-PARENT_DIR = Path(__file__).parent
 
 # xgboost model
 process_model_path = (PARENT_DIR / "models" / "xgb_number_time.json")
@@ -42,6 +41,8 @@ xgboost_proc_model.load_model(process_model_path)
 
 # model_file = Path.cwd() / 'manage-server' / 'models' / 'number_time_LinearR.joblib'
 # linear_model: LinearRegression = joblib.load(model_file)
+
+PARENT_DIR = Path(__file__).parent.parent
 
 # LOG file
 log_path = PARENT_DIR / 'logs' / f"{Path(__file__).stem}.log"
