@@ -32,10 +32,10 @@ tasks_done_processing = []  # tasks that are done processing
 
 SHORTEST_PENDING_TIME_WORKER = None
 
-
+PARENT_DIR = Path(__file__).parent
 
 # xgboost model
-process_model_path = ("/home/pi/apps/manage-server/models/xgb_number_time_linear.json")
+process_model_path = (PARENT_DIR / "models" / "xgb_number_time_linear.json")
 xgboost_proc_model = xgb.XGBRegressor()
 xgboost_proc_model.load_model(process_model_path)
 
@@ -43,7 +43,7 @@ xgboost_proc_model.load_model(process_model_path)
 # linear_model: LinearRegression = joblib.load(model_file)
 
 # LOG file
-log_path = Path.cwd() / 'log' / f"{__file__}.log"
+log_path = PARENT_DIR / 'logs' / f"{Path(__file__).stem}.log"
 print("Log Path:", log_path)
 logging.basicConfig(filename=log_path, level=logging.INFO, filemode='w')
 
@@ -424,4 +424,5 @@ def server_run():
 
 if __name__ == "__main__":
     server_run()
+    # print(Path(__file__).parent)
 
