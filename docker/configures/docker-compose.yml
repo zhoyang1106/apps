@@ -1,0 +1,65 @@
+version: '3.8'
+services:
+  node-service-server1:
+    image: soar009/node-service-image:v5
+    ports:
+      - "8081:8080"
+    deploy:
+      mode: replicated
+      replicas: 1
+      placement:
+        constraints:
+          - node.role == worker
+          - node.id == avjngyy03bn29zfkhy1xjew1t
+          - node.ip == 192.168.0.150
+      resources:
+        limits:
+          cpus: '0.3'
+      restart_policy:
+        condition: on-failure
+    networks:
+      - node-service-net
+
+  node-service-server2:
+    image: soar009/node-service-image:v5
+    ports:
+      - "8082:8080"
+    deploy:
+      mode: replicated
+      replicas: 1
+      placement:
+        constraints:
+          - node.role == worker
+          - node.id == q4g7wwyhehj7cc3oca69u3xzn
+          - node.ip == 192.168.0.151
+      resources:
+        limits:
+          cpus: '0.5'
+      restart_policy:
+        condition: on-failure
+    networks:
+      - node-service-net
+
+  node-service-server3:
+    image: soar009/node-service-image:v5
+    ports:
+      - "8083:8080"
+    deploy:
+      mode: replicated
+      replicas: 1
+      placement:
+        constraints:
+          - node.role == worker
+          - node.id == wbt213pw9jjywdouefljk3sa8
+          - node.ip == 192.168.0.152
+      resources:
+        limits:
+          cpus: '0.7'
+      restart_policy:
+        condition: on-failure
+    networks:
+      - node-service-net
+
+networks:
+  node-service-net:
+    external: true

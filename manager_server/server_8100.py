@@ -18,10 +18,10 @@ import torch.nn as nn
 import torch.optim as optim
 from collections import deque
 import matplotlib.pyplot as plt
-import utils.dqn as dqn
-import utils.algor1 as algor1
-import utils.algor2 as algor2
-import utils.round_robin as round_robin 
+import algorithm.dqn as dqn
+import algorithm.algor1 as algor1
+import algorithm.algor2 as algor2
+import algorithm.round_robin as round_robin 
 
 
 
@@ -107,8 +107,8 @@ class Worker:
         self.hdd_usage = 0
         self.mem_usage = 0
 
-        self.max_hdd_usage = 0
-        self.max_mem_usage = 0
+        self.max_hdd_usage = 1
+        self.max_mem_usage = 1
 
         # session for worker connector
         self.session = None
@@ -217,6 +217,7 @@ class Worker:
             print("SSH connection closed.")
 
 UPDATE_INTERVAL = 0.001
+ 
 
 # 3대 서버
 WORKERS = [
@@ -224,6 +225,9 @@ WORKERS = [
     Worker(id=1, ip='192.168.0.151', port=8080, update_interval=UPDATE_INTERVAL),
     Worker(id=2, ip='192.168.0.152', port=8080, update_interval=UPDATE_INTERVAL),
 ]
+
+
+
 
 ROUND_ROUBIN_WORKER_INDEX = 0
 
@@ -249,20 +253,24 @@ async def sum_proccessing_cnt():
 
 # multi IP addresses   다중 IP 주소를 위한 작업자 선택 알고리즘
 def choose_url_algorithm(name=None, **kwargs):
-    global WORKERS, ROUND_ROUBIN_WORKER_INDEX, EPISODE, num_tasks_generated
+    global ROUND_ROUBIN_WORKER_INDEX, EPISODE, num_tasks_generated
+    worker_names_obj = kwargs.get('worker_names_obj', None)
+    if not worker_names_obj:
+        worker_names_obj = WORKERS
+    print(worker_names_obj)
     # use params from kwargs
     new_task: Task = kwargs.get('new_task')
-    response_time = [ worker.wait_time + new_task.pred_processed_time for worker in WORKERS ]
+    response_time = [ worker.wait_time + new_task.pred_processed_time for worker in worker_names_obj ]
 
     if not name or name == 'round-robin': # round robin 알고리즘
-        worker_index = round_robin.round_robin_assignment(num_tasks_generated, new_task, WORKERS)      ## ROUND_ROUBIN_WORKER_INDEX
+        worker_index = round_robin.round_robin_assignment(num_tasks_generated, new_task, worker_names_obj)      ## ROUND_ROUBIN_WORKER_INDEX
         # ROUND_ROUBIN_WORKER_INDEX = (ROUND_ROUBIN_WORKER_INDEX + 1) % len(WORKERS)
-        return WORKERS[worker_index]
+        return worker_names_obj[worker_index]
     
     elif name == 'dqn':    # DQN 알고리즘
         epsilon = dqn.epsilon_start
         # choose worker
-        worker_index = dqn.DQN_Model(response_time, new_task, dqn.epsilon_start, WORKERS)
+        worker_index = dqn.DQN_Model(response_time, new_task, dqn.epsilon_start, worker_names_obj)
         reward = dqn.get_reward(response_time[worker_index], worker_index)  # 긍정적인 보상 함수 사용
         new_task.reward += reward  # 보상 누적
 
@@ -275,18 +283,18 @@ def choose_url_algorithm(name=None, **kwargs):
                 dqn.update_target_network()
                 EPISODE = 0
 
-        return WORKERS[worker_index]
+        return worker_names_obj[worker_index]
 
     elif name == 'algor1':    # 알고리즘 1
         # choose worker
-        worker_index = algor1.Optimization_Model1(response_time, new_task, WORKERS)
-        return WORKERS[worker_index]
+        worker_index = algor1.Optimization_Model1(response_time, new_task, worker_names_obj)
+        return worker_names_obj[worker_index]
 
     else:
         if name == 'algor2':  # 알고리즘 2  (분배 비율의 표준평차 최소화)
             # choose worker
-            worker_index = algor2.Optimization_Model2(response_time, new_task, WORKERS)
-            return WORKERS[worker_index]
+            worker_index = algor2.Optimization_Model2(response_time, new_task, worker_names_obj)
+            return worker_names_obj[worker_index]
         
         
 
@@ -295,6 +303,16 @@ def choose_url_algorithm(name=None, **kwargs):
 async def handle_new_task(request_data: dict, headers: dict):
     global WORKERS, num_tasks_generated
 
+    worker_names: list[Worker] = request_data.get('worker_names')
+    worker_names_obj = None
+
+    if worker_names ==  "WORKERS1":
+        worker_names_obj = WORKERS[:1]
+    elif worker_names ==  "WORKERS2":
+        worker_names_obj = WORKERS[:2]
+    else:
+        worker_names =  "WORKERS"
+        worker_names_obj = WORKERS
 
     # CPU task memory and hard disk (TEST DATA)
     new_task = Task(request_data=request_data, headers=headers)
@@ -316,14 +334,14 @@ async def handle_new_task(request_data: dict, headers: dict):
     try:
         chosen_worker = None
         
-        for worker in WORKERS:
+        for worker in worker_names_obj:
             if worker.processing_cnt == 0:
                 chosen_worker = worker
                 break
 
         if not chosen_worker:
             start_time = time.time()
-            chosen_worker = choose_url_algorithm(name=request_data['algo_name'], new_task=new_task)
+            chosen_worker = choose_url_algorithm(name=request_data['algo_name'], new_task=new_task, worker_names_obj=worker_names_obj)
             end_time = time.time()
             new_task.opt_time = end_time - start_time
            
@@ -334,7 +352,7 @@ async def handle_new_task(request_data: dict, headers: dict):
        
         new_task.worker = chosen_worker
         new_task.target_url = chosen_worker.url
-        new_task.serving_worker_number = WORKERS.index(chosen_worker)
+        new_task.serving_worker_number = chosen_worker.id
         
         new_task.wait_time = chosen_worker.wait_time
         
@@ -420,18 +438,18 @@ async def request_handler(request: web.Request):
             data['rewards'] = new_task.reward
             data['information_list'] = {
                 'Worker_index': chosen_worker.id, 
-                'Server1_hdd_usage': WORKERS[0].hdd_usage,
-                'Server2_hdd_usage': WORKERS[1].hdd_usage,
-                'Server3_hdd_usage': WORKERS[2].hdd_usage,
-                'Server1_mem_usage': WORKERS[0].mem_usage,
-                'Server2_mem_usage': WORKERS[1].mem_usage,
-                'Server3_mem_usage': WORKERS[2].mem_usage,
+                # 'Server1_hdd_usage': WORKERS[0].hdd_usage,
+                # 'Server2_hdd_usage': WORKERS[1].hdd_usage,
+                # 'Server3_hdd_usage': WORKERS[2].hdd_usage,
+                # 'Server1_mem_usage': WORKERS[0].mem_usage,
+                # 'Server2_mem_usage': WORKERS[1].mem_usage,
+                # 'Server3_mem_usage': WORKERS[2].mem_usage,
                 'Response_time': response_time[chosen_worker.id],
                 'Task_hdd_usage': new_task.hdd_usage,
                 'Task_mem_usage': new_task.mem_usage,
-                'Task_id': num_tasks_generated
+                'Task_id': num_tasks_generated,
+                'Task_opt_time': new_task.opt_time
             }
-            data['opt_time'] = new_task.opt_time
             
             
             logging.info(f'{"-" * 40}\n')

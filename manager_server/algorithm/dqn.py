@@ -18,10 +18,7 @@ HDD_CAPACITY = 14.5*1_000_000_000 # 1.5GB (use any number)   ## 서버의 실제
 num_tasks_generated = 0
 MAX_NUM_TASKS_TO_GENERATE = 3
 
-# initialize
-NUM_WORKERS = 3
-task_queues_in_processing = [[] for w in range(NUM_WORKERS)] # tasks that are being processed
-tasks_done_processing = []  # tasks that are done processing
+
 
 
 

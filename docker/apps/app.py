@@ -5,6 +5,8 @@ import os
 import time
 import traceback
 import asyncio
+from pathlib import Path
+
 
 # Global process pool
 thread_executor = ThreadPoolExecutor(max_workers=1)
@@ -57,32 +59,15 @@ async def handle(request: web.Request):
     try:
         # Run the blocking task
         loop = asyncio.get_event_loop()
-        response_data = await loop.run_in_executor(thread_executor, prime_count, data["number"])
-        # response_data = await loop.run_in_executor(process_executor, prime_count, data["number"])
+        # response_data = await loop.run_in_executor(thread_executor, prime_count, data["number"])
+        response_data = await loop.run_in_executor(process_executor, prime_count, data["number"])
+
+        # logging.info(f"Current Processing Tasks Sum: {PROCESSING_CNT}")
 
         return web.json_response(response_data, status=200)
     except Exception as e:
         error_message = traceback.format_exc()
         return web.json_response({"error": error_message}, status=500)
 
-async def main():
-    global lock
-    lock = asyncio.Lock()
 
-    app = web.Application()
-    app.router.add_post("", handle)
-
-    # Run the web application
-    runner = web.AppRunner(app)
-    await runner.setup()
-    site = web.TCPSite(runner, '0.0.0.0', 8080)
-    await site.start()
-
-    # Keep the application running
-    while True:
-        # Adjust as needed for your application's lifecycle
-        await asyncio.sleep(3600)
-
-if __name__ == "__main__":
-    asyncio.run(main())
 

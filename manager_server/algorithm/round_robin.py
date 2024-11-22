@@ -18,7 +18,7 @@ HDD_CAPACITY = 14.5*1_000_000_000 # 14.5GB (use any number)   ## 서버의 실�
 
 
 def round_robin_assignment(index, Task, WORKERS):
-    NUM_WORKERS = 3
+    NUM_WORKERS = len(WORKERS)
     server_index = index % NUM_WORKERS
 
     worker_index = 0

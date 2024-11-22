@@ -219,9 +219,9 @@ class Worker:
 UPDATE_INTERVAL = 0.02
 
 WORKERS = [
-    Worker(ip='192.168.0.150', port=8080, update_interval=UPDATE_INTERVAL),
-    Worker(ip='192.168.0.151', port=8080, update_interval=UPDATE_INTERVAL),
-    Worker(ip='192.168.0.152', port=8080, update_interval=UPDATE_INTERVAL),
+    Worker(ip='192.168.0.150', port=8081, update_interval=UPDATE_INTERVAL),
+    Worker(ip='192.168.0.151', port=8082, update_interval=UPDATE_INTERVAL),
+    Worker(ip='192.168.0.152', port=8083, update_interval=UPDATE_INTERVAL),
 ]
 
 

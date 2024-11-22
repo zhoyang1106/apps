@@ -14,7 +14,7 @@ from gurobipy import GRB
 # HDD_CAPACITY = 1.5*1_000_000_000 # 1.5GB (use any number)
 MEM_CAPACITY = 900*1_000_000 # 900 MB (use any number)       ## 서버의 실제값
 HDD_CAPACITY = 14.5*1_000_000_000 # 14.5GB (use any number)   ## 서버의 실제값
-NUM_WORKERS = 3
+
 
 
 
@@ -23,7 +23,7 @@ NUM_WORKERS = 3
 Model
 '''
 def Optimization_Model1(response_time, Task, WORKERS):
-
+    NUM_WORKERS = len(WORKERS)
     # Create model
     model = gp.Model("server_optimization")
 
@@ -63,7 +63,7 @@ def Optimization_Model1(response_time, Task, WORKERS):
     model.optimize()
 
     # Print results
-    # worker_index = 5
+    worker_index = 0
     if model.status == GRB.OPTIMAL:
         # 获取所有 x[worker.id].X 的值
         x_values = [x[worker.id].X for worker in WORKERS]

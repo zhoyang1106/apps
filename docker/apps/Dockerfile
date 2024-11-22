@@ -19,7 +19,7 @@ WORKDIR /app
 
 # 升级 pip 并安装 aiohttp
 RUN pip install --upgrade pip
-RUN pip install aiohttp psutil
+RUN pip install aiohttp psutil websockets
 
 # 复制当前目录的代码到容器中的工作目录
 COPY . /app
