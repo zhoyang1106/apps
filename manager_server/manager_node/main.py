@@ -43,6 +43,7 @@ async def init_app():
     
     # 启动后台任务
     app.on_startup.append(lambda app: manager_node.start_sessions())
+    app.on_startup.append(lambda app: manager_node.start_worker_hdd_mem_task())
     app.on_startup.append(lambda app: asyncio.create_task(check_heartbeats()))
     app.on_cleanup.append(manager_node.on_shutdown)
 

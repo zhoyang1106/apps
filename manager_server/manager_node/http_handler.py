@@ -211,12 +211,13 @@ class ManagerNode:
         self.xgboost_model = kwargs.get("xgboost_model", None)
         self.workers: typing.List[Worker] = kwargs.get('workers', [])
 
+        print(f"workers: {self.workers}")
+        print("SSH connect started")
+
+    def start_worker_hdd_mem_task(self):
         for worker in self.workers:
             worker.hdd_task = asyncio.create_task(worker.hdd_usage_handle())
             worker.mem_task = asyncio.create_task(worker.mem_usage_handle())
-
-        print("SSH connect started")
-        print("HDD/MEM tasks started")
 
     
     def predict_processed_time(self, task: Task):
