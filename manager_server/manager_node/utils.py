@@ -19,4 +19,6 @@ def load_xgboost_model():
     process_model_path = PARENT_DIR / "models" / "xgb_number_time.json"
     xgboost_proc_model = xgb.Booster()
     xgboost_proc_model.load_model(process_model_path)
+
+    print("Xgboost model started")
     return xgboost_proc_model

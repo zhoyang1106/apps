@@ -148,11 +148,8 @@ class Worker:
             print(e)
             error_message = traceback.format_exc()
             print(f"Error in HDD monitoring task: {error_message}")
-        finally:
-            error_message = traceback.format_exc()
-            print(f"Error in HDD monitoring task: {error_message}")
-            self.ssh_client.close()
-            print("SSH connection closed.")
+            exit(1)
+            
 
     async def mem_usage_handle(self):
         cmd = """cat /proc/meminfo"""
@@ -190,9 +187,8 @@ class Worker:
             # 捕获其他异常
             error_message = traceback.format_exc()
             print(f"Error in Memory monitoring task: {error_message}")
-        finally:
-            self.ssh_client.close()
-            print("SSH connection closed.")
+            exit(1)
+        
 
 class Task:
     def __init__(self, **kwargs):
@@ -216,13 +212,11 @@ class ManagerNode:
         self.workers: typing.List[Worker] = kwargs.get('workers', [])
 
         for worker in self.workers:
-            worker.hdd_usage = asyncio.create_task(worker.hdd_usage_handle())
-            worker.mem_usage = asyncio.create_task(worker.mem_usage_handle())
+            worker.hdd_task = asyncio.create_task(worker.hdd_usage_handle())
+            worker.mem_task = asyncio.create_task(worker.mem_usage_handle())
 
-
-        print("Start min pending time worker update")
         print("SSH connect started")
-        print("Workers' timer has started")
+        print("HDD/MEM tasks started")
 
     
     def predict_processed_time(self, task: Task):
@@ -297,7 +291,6 @@ class ManagerNode:
     async def start_sessions(self):
         for worker in self.workers:
             await worker.start_session()
-    
 
     # handle request main function
     async def request_handler(self, request: web.Request):
@@ -376,4 +369,9 @@ class ManagerNode:
             if worker.mem_task:
                 await worker.mem_task
             await worker.close_session()
+            
+            worker.ssh_client.close()
+            
+            print("Session connection closed.")
+            print("SSH connection closed.")
 
