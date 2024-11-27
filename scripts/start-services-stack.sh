@@ -1,0 +1,1 @@
+sudo docker stack deploy -c ~/apps/docker/docker-compose.yml node-services-stack
