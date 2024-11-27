@@ -3,7 +3,7 @@ import logging
 from pathlib import Path
 import xgboost as xgb
 
-def setup_logger(name, log_path):
+def setup_logger(name, log_path: Path):
     logger = logging.getLogger(name)
     logger.setLevel(logging.INFO)
     if not logger.handlers:
@@ -16,7 +16,7 @@ def setup_logger(name, log_path):
 
 def load_xgboost_model():
     PARENT_DIR = Path(__file__).parent.parent
-    process_model_path = PARENT_DIR / "models" / "xgb_number_time.json"
+    process_model_path = PARENT_DIR / "models" / "xgb_number_time_gbtree.json"
     xgboost_proc_model = xgb.Booster()
     xgboost_proc_model.load_model(process_model_path)
 

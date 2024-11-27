@@ -19,8 +19,11 @@ import torch.optim as optim
 from collections import deque
 import matplotlib.pyplot as plt
 import algorithm.dqn as dqn
+import algorithm.DQN as DQN
 import algorithm.algor1 as algor1
 import algorithm.algor2 as algor2
+import algorithm.algor1_sum as algor1_sum
+import algorithm.algor2_sum as algor2_sum
 import algorithm.round_robin as round_robin 
 
 
@@ -42,7 +45,7 @@ tasks_done_processing = []  # tasks that are done processing
 
 
 # xgboost model
-process_model_path = ("/home/pi/apps/manage-server/models/xgb_number_time.json")
+process_model_path = ("/home/pi/apps/manager_server/models/xgb_number_time.json")
 xgboost_proc_model = Booster()
 xgboost_proc_model.load_model(process_model_path)
 
@@ -57,6 +60,7 @@ logging.basicConfig(filename=log_path, level=logging.INFO, filemode='w')
 class Task:
     def __init__(self, **kwargs):
         # request data
+        self.id = 0
         self.request_data: dict = kwargs.get('request_data')
         self.headers: dict = kwargs.get('headers')
         self.worker: Worker = None
@@ -260,28 +264,50 @@ def choose_url_algorithm(name=None, **kwargs):
     print(worker_names_obj)
     # use params from kwargs
     new_task: Task = kwargs.get('new_task')
-    response_time = [ worker.wait_time + new_task.pred_processed_time for worker in worker_names_obj ]
-
+    if isinstance(new_task, list):
+        response_times = []
+        for i in range(len(new_task)):
+            response_time = [ worker.wait_time + new_task[i].pred_processed_time for worker in worker_names_obj ]
+            response_times.append(response_time)
+    else:
+        response_time = [ worker.wait_time + new_task.pred_processed_time for worker in worker_names_obj ]
+    
     if not name or name == 'round-robin': # round robin 알고리즘
         worker_index = round_robin.round_robin_assignment(num_tasks_generated, new_task, worker_names_obj)      ## ROUND_ROUBIN_WORKER_INDEX
         # ROUND_ROUBIN_WORKER_INDEX = (ROUND_ROUBIN_WORKER_INDEX + 1) % len(WORKERS)
         return worker_names_obj[worker_index]
     
     elif name == 'dqn':    # DQN 알고리즘
-        epsilon = dqn.epsilon_start
+        # epsilon = dqn.epsilon_start
+        # # choose worker
+        # worker_index = dqn.DQN_Model(response_time, new_task, dqn.epsilon_start, worker_names_obj)
+        # reward = dqn.get_reward(response_time[worker_index], worker_index)  # 긍정적인 보상 함수 사용
+        # new_task.reward += reward  # 보상 누적
+
+        # epsilon = max(dqn.epsilon_end, epsilon * dqn.epsilon_decay)                                                                                                                                                                                
+
+        # if EPISODE_ADD_CHECK == 0:
+        #     EPISODE += 1
+
+        #     if EPISODE % dqn.target_update == 0:
+        #         dqn.update_target_network()
+        #         EPISODE = 0
+
+        epsilon = DQN.epsilon_start
         # choose worker
-        worker_index = dqn.DQN_Model(response_time, new_task, dqn.epsilon_start, worker_names_obj)
-        reward = dqn.get_reward(response_time[worker_index], worker_index)  # 긍정적인 보상 함수 사용
+        worker_index = DQN.DQN_Model(response_time, new_task, DQN.epsilon_start, worker_names_obj)
+        reward = DQN.get_reward(response_time[worker_index], worker_index)  # 긍정적인 보상 함수 사용
         new_task.reward += reward  # 보상 누적
 
-        epsilon = max(dqn.epsilon_end, epsilon * dqn.epsilon_decay)
+        epsilon = max(DQN.epsilon_end, epsilon * DQN.epsilon_decay)                                                                                                                                                                                
 
         if EPISODE_ADD_CHECK == 0:
             EPISODE += 1
 
-            if EPISODE % dqn.target_update == 0:
-                dqn.update_target_network()
+            if EPISODE % DQN.target_update == 0:
+                DQN.soft_update_target_network()
                 EPISODE = 0
+
 
         return worker_names_obj[worker_index]
 
@@ -290,12 +316,21 @@ def choose_url_algorithm(name=None, **kwargs):
         worker_index = algor1.Optimization_Model1(response_time, new_task, worker_names_obj)
         return worker_names_obj[worker_index]
 
-    else:
-        if name == 'algor2':  # 알고리즘 2  (분배 비율의 표준평차 최소화)
-            # choose worker
-            worker_index = algor2.Optimization_Model2(response_time, new_task, worker_names_obj)
-            return worker_names_obj[worker_index]
+    elif name == 'algor2':  # 알고리즘 2  (분배 비율의 표준평차 최소화)
+        # choose worker
+        worker_index = algor2.Optimization_Model2(response_time, new_task, worker_names_obj)
+        return worker_names_obj[worker_index]
         
+    elif name == 'algor1_sum':    # 알고리즘 1
+        # choose worker
+        workers = algor1_sum.Optimization_Model1(response_times, new_task, worker_names_obj)
+        return workers
+
+    else:
+        if name == 'algor2_sum':  # 알고리즘 2  (분배 비율의 표준평차 최소화)
+            # choose worker
+            workers = algor2_sum.Optimization_Model2(response_times, new_task, worker_names_obj)
+            return workers
         
 
 
@@ -373,7 +408,84 @@ async def handle_new_task(request_data: dict, headers: dict):
         error_message = traceback.format_exc()
         print(error_message)
         exit(1)
+
+
+# 새 task list 처리
+async def handle_new_tasks(request_data: dict, headers: dict):
+    global WORKERS
+
+    worker_names: list[Worker] = request_data.get('worker_names')
+    worker_names_obj = None
+
+    if worker_names ==  "WORKERS1":
+        worker_names_obj = WORKERS[:1]
+    elif worker_names ==  "WORKERS2":
+        worker_names_obj = WORKERS[:2]
+    else:
+        worker_names =  "WORKERS"
+        worker_names_obj = WORKERS
+
+    # CPU task memory and hard disk (TEST DATA)
+    new_tasks = []
+    for i in range(len(request_data['number'])):
+
+        data = {"number": request_data['number'][i], 'algo_name': request_data.get('algo_name'), 'worker_names': worker_names}
+        new_task = Task(request_data=data, headers=headers)
+        
+        if request_data['number'][i] <= 1000:
+            new_task.mem_usage = 176
+        elif request_data['number'][i] > 1000 and request_data['number'][i] <= 10000:
+            new_task.mem_usage = 204
+        else:
+            new_task.mem_usage = 240
+        new_task.hdd_usage = 0
+        new_tasks.append(new_task)
     
+    try:
+        chosen_workers = []
+        
+        # for worker in worker_names_obj:
+        #     if worker.processing_cnt == 0:
+        #         chosen_worker = worker
+        #         break
+
+        if not chosen_workers:
+            start_time = time.time()
+            chosen_workers = choose_url_algorithm(name=request_data['algo_name'], new_task=new_tasks, worker_names_obj=worker_names_obj)
+            end_time = time.time()
+            print(request_data['algo_name'], worker_names, "cpu time:", end_time - start_time)
+            new_task.opt_time = end_time - start_time
+        
+        
+        if not chosen_workers:
+            raise Exception("chosen workers is None")
+
+        for i in range(len(new_tasks)):
+            new_task.worker = chosen_workers[i]
+            new_task.target_url = chosen_workers[i].url
+            new_task.serving_worker_number = chosen_workers[i].id
+            
+            new_task.wait_time = chosen_workers[i].wait_time
+            
+            chosen_workers[i].current_task = new_task
+
+            # add waiting time
+            # 예측 처리 시간을 wait_time에 추가
+
+            async with chosen_workers[i].lock:
+                chosen_workers[i].processing_cnt += 1
+
+            # put into worker queue
+            await chosen_workers[i].tasks_queue.put(new_task)
+
+        return chosen_workers, new_tasks
+
+    except Exception as e:
+        error_message = traceback.format_exc()
+        print(error_message)
+        exit(1)
+
+
 
 # handle request main function  # 요청 처리 메인 함수
 async def request_handler(request: web.Request):
@@ -386,89 +498,150 @@ async def request_handler(request: web.Request):
 
         # generate task and put into manager tasks queue    task 생성 및 매니저 task 큐에 넣기
         request_data = await request.json()
-        chosen_worker, new_task = await handle_new_task(request_data, request.headers)
-        response_time = { worker.id: worker.wait_time + new_task.pred_processed_time for worker in WORKERS }
-        
-        # record data 
-        # output.update(information_list, num_tasks_generated, chosen_worker.id, WORKERS, response_time[chosen_worker.id], new_task.hdd_usage, new_task.mem_usage)
-
-
-        processing_cnt = chosen_worker.processing_cnt
-        # fetch queue first task and send   큐의 첫 번째 task 가져오기 및 전송
-        
-        print('-' * 40, end='\n')
-        print(f"Chosen worker: {dir(chosen_worker)}")
-        print("Before", time.time(), f"Request number {new_task.request_data.get('number')}")
-        print(f"task prediction process time {new_task.pred_processed_time}")
-        print(f"worker node nummber:{new_task.serving_worker_number}")
-        print("processing_cnt:", chosen_worker.processing_cnt)
-        print("task wait time", new_task.wait_time)
-        print("total predict response time", new_task.wait_time + new_task.pred_processed_time)
-        total_response_time_prediction = new_task.wait_time + new_task.pred_processed_time
-        before_forward_timestamp = time.time()
-        before_forward_time = before_forward_timestamp - manager_received_timestamp
-
-
-
-        await chosen_worker.tasks_queue.get()
-
-        # send this task to worker node  
-        async with chosen_worker.session.post(url=chosen_worker.url, json=new_task.request_data, headers=new_task.headers) as response:
-            data: dict = await response.json()
-
-            # task 종료 시간을 기록
-
-            async with chosen_worker.lock:
-                chosen_worker.finished_cnt += 1
-                chosen_worker.processing_cnt -= 1
-            if "error" in data.keys():
-                data["success"] = 0
-            else:
-                data["success"] = 1
-
-            # update response datas
-            data["chosen_ip"] = chosen_worker.ip
-            data['processed_time'] = data.pop("real_process_time")
-            data['jobs_on_worker_node'] = processing_cnt
-            data['total_response_time_prediction'] = total_response_time_prediction
-            data['real_task_wait_time'] =  data['start_process_time'] - manager_received_timestamp
-            data['before_forward_time'] = before_forward_time
-            data['pred_task_wait_time'] = new_task.wait_time
-            data['before_forward_timestamp'] = before_forward_timestamp
-            data['rewards'] = new_task.reward
-            data['information_list'] = {
-                'Worker_index': chosen_worker.id, 
-                # 'Server1_hdd_usage': WORKERS[0].hdd_usage,
-                # 'Server2_hdd_usage': WORKERS[1].hdd_usage,
-                # 'Server3_hdd_usage': WORKERS[2].hdd_usage,
-                # 'Server1_mem_usage': WORKERS[0].mem_usage,
-                # 'Server2_mem_usage': WORKERS[1].mem_usage,
-                # 'Server3_mem_usage': WORKERS[2].mem_usage,
-                'Response_time': response_time[chosen_worker.id],
-                'Task_hdd_usage': new_task.hdd_usage,
-                'Task_mem_usage': new_task.mem_usage,
-                'Task_id': num_tasks_generated,
-                'Task_opt_time': new_task.opt_time
-            }
+        if isinstance(request_data['number'], (int, float, complex)):
+            chosen_worker, new_task = await handle_new_task(request_data, request.headers)
+            response_time = { worker.id: worker.wait_time + new_task.pred_processed_time for worker in WORKERS }
             
-            
-            logging.info(f'{"-" * 40}\n')
-            logging.info(f'{data}\n')
-            logging.info(f"{'Before waiting jobs:':<50}{processing_cnt:<20}\n")
-            logging.info(f"{'worker wait time:':<50}{data['real_task_wait_time']:<20}\n")
-            logging.info(f"{'Datetime:':<50}{datetime.ctime(datetime.now()) :<20}\n")
+            # record data 
+            # output.update(information_list, num_tasks_generated, chosen_worker.id, WORKERS, response_time[chosen_worker.id], new_task.hdd_usage, new_task.mem_usage)
 
+
+            processing_cnt = chosen_worker.processing_cnt
+            # fetch queue first task and send   큐의 첫 번째 task 가져오기 및 전송
+            
             print('-' * 40, end='\n')
-            print("After", time.time(), f"Request number {new_task.request_data.get('number')}")
+            print(f"Chosen worker: {dir(chosen_worker)}")
+            print("Before", time.time(), f"Request number {new_task.request_data.get('number')}")
+            print(f"task prediction process time {new_task.pred_processed_time}")
             print(f"worker node nummber:{new_task.serving_worker_number}")
             print("processing_cnt:", chosen_worker.processing_cnt)
-            
-            return web.json_response(data)
+            print("task wait time", new_task.wait_time)
+            print("total predict response time", new_task.wait_time + new_task.pred_processed_time)
+            total_response_time_prediction = new_task.wait_time + new_task.pred_processed_time
+            before_forward_timestamp = time.time()
+            before_forward_time = before_forward_timestamp - manager_received_timestamp
+
+
+
+            # await chosen_worker.tasks_queue.get()
+
+            # send this task to worker node  
+            async with chosen_worker.session.post(url=chosen_worker.url, json=new_task.request_data, headers=new_task.headers) as response:
+                data: dict = await response.json()
+
+                # task 종료 시간을 기록
+
+                async with chosen_worker.lock:
+                    chosen_worker.finished_cnt += 1
+                    chosen_worker.processing_cnt -= 1
+                if "error" in data.keys():
+                    data["success"] = 0
+                else:
+                    data["success"] = 1
+
+                # update response datas
+                data["chosen_ip"] = chosen_worker.ip
+                data['processed_time'] = data.pop("real_process_time")
+                data['jobs_on_worker_node'] = processing_cnt
+                data['total_response_time_prediction'] = total_response_time_prediction
+                data['real_task_wait_time'] =  data['start_process_time'] - manager_received_timestamp
+                data['before_forward_time'] = before_forward_time
+                data['pred_task_wait_time'] = new_task.wait_time
+                data['before_forward_timestamp'] = before_forward_timestamp
+                data['rewards'] = new_task.reward
+                data['information_list'] = {
+                    'Worker_index': chosen_worker.id, 
+                    # 'Server1_hdd_usage': WORKERS[0].hdd_usage,
+                    # 'Server2_hdd_usage': WORKERS[1].hdd_usage,
+                    # 'Server3_hdd_usage': WORKERS[2].hdd_usage,
+                    # 'Server1_mem_usage': WORKERS[0].mem_usage,
+                    # 'Server2_mem_usage': WORKERS[1].mem_usage,
+                    # 'Server3_mem_usage': WORKERS[2].mem_usage,
+                    'Response_time': response_time[chosen_worker.id],
+                    'Task_hdd_usage': new_task.hdd_usage,
+                    'Task_mem_usage': new_task.mem_usage,
+                    'Task_id': num_tasks_generated,
+                    'Task_opt_time': new_task.opt_time
+                }
+                
+                
+                logging.info(f'{"-" * 40}\n')
+                logging.info(f'{data}\n')
+                logging.info(f"{'Before waiting jobs:':<50}{processing_cnt:<20}\n")
+                logging.info(f"{'worker wait time:':<50}{data['real_task_wait_time']:<20}\n")
+                logging.info(f"{'Datetime:':<50}{datetime.ctime(datetime.now()) :<20}\n")
+
+                print('-' * 40, end='\n')
+                print("After", time.time(), f"Request number {new_task.request_data.get('number')}")
+                print(f"worker node nummber:{new_task.serving_worker_number}")
+                print("processing_cnt:", chosen_worker.processing_cnt)
+                
+                return web.json_response(data)
+
+        if isinstance(request_data['number'], list):
+            # 算法
+            workers, tasks = await handle_new_tasks(request_data, request.headers)  # 重写 handle_new_task 函数
+            results = list()
+            # for worker, new_task in zip(workers, tasks):
+            #     async with worker.session.post(url=worker.url, json=new_task.request_data, headers=new_task.headers) as response:
+            #         data: dict = await response.json()
+
+            #         # task 종료 시간을 기록
+
+            #         # async with worker.lock:
+            #         worker.finished_cnt += 1
+            #         worker.processing_cnt -= 1
+                    
+            #         if "error" in data.keys():
+            #             data["success"] = 0
+            #         else:
+            #             data["success"] = 1
+
+            #         # update response datas
+            #         data["chosen_ip"] = worker.ip
+            #         data['processed_time'] = data.pop("real_process_time")
+            #         data['jobs_on_worker_node'] = processing_cnt
+            #         data['total_response_time_prediction'] = total_response_time_prediction
+            #         data['real_task_wait_time'] =  data['start_process_time'] - manager_received_timestamp
+            #         data['before_forward_time'] = before_forward_time
+            #         data['pred_task_wait_time'] = new_task.wait_time
+            #         data['before_forward_timestamp'] = before_forward_timestamp
+            #         data['rewards'] = new_task.reward
+            #         data['information_list'] = {
+            #             'Worker_index': worker.id, 
+            #             # 'Server1_hdd_usage': WORKERS[0].hdd_usage,
+            #             # 'Server2_hdd_usage': WORKERS[1].hdd_usage,
+            #             # 'Server3_hdd_usage': WORKERS[2].hdd_usage,
+            #             # 'Server1_mem_usage': WORKERS[0].mem_usage,
+            #             # 'Server2_mem_usage': WORKERS[1].mem_usage,
+            #             # 'Server3_mem_usage': WORKERS[2].mem_usage,
+            #             'Response_time': response_time[worker.id],
+            #             'Task_hdd_usage': new_task.hdd_usage,
+            #             'Task_mem_usage': new_task.mem_usage,
+            #             'Task_id': num_tasks_generated,
+            #             'Task_opt_time': new_task.opt_time
+            #         }
+                    
+                    
+            #         logging.info(f'{"-" * 40}\n')
+            #         logging.info(f'{data}\n')
+            #         logging.info(f"{'Before waiting jobs:':<50}{processing_cnt:<20}\n")
+            #         logging.info(f"{'worker wait time:':<50}{data['real_task_wait_time']:<20}\n")
+            #         logging.info(f"{'Datetime:':<50}{datetime.ctime(datetime.now()) :<20}\n")
+
+            #         print('-' * 40, end='\n')
+            #         print("After", time.time(), f"Request number {new_task.request_data.get('number')}")
+            #         print(f"worker node nummber:{new_task.serving_worker_number}")
+            #         print("processing_cnt:", worker.processing_cnt)
+
+            #         results.append(data)
+
+            return web.json_response({'Task_opt_time': [task.opt_time for task in tasks]})
 
     except Exception:
         error_message = traceback.format_exc()
         print(error_message)
-        return web.json_response({"error": error_message, "data": data}, status=500)
+        return web.json_response({"error": error_message}, status=500)
 
 
 # 서버 종료 시 처리 함수

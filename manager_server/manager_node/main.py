@@ -2,7 +2,6 @@
 import asyncio
 from pathlib import Path
 from aiohttp import web
-from websocket_handler import websocket_handler, check_heartbeats
 from http_handler import ManagerNode, Worker
 from utils import setup_logger, load_xgboost_model
 import traceback
@@ -31,20 +30,20 @@ async def init_app():
 
     # 初始化 ManagerNode
     manager_node = ManagerNode(xgboost_model=xgboost_model, workers=[
-        Worker(ip='192.168.0.150', port=8080, id='150'),
-        Worker(ip='192.168.0.151', port=8080, id='151'),
-        Worker(ip='192.168.0.152', port=8080, id='152'),
+        Worker(ip='192.168.0.150', port=8080, id='150', update_interval=0.01, cpu_limit=0.8, logger=stdout_logger),
+        Worker(ip='192.168.0.151', port=8080, id='151', update_interval=0.01, cpu_limit=0.8, logger=stdout_logger),
+        Worker(ip='192.168.0.152', port=8080, id='152', update_interval=0.01, cpu_limit=0.8, logger=stdout_logger),
     ])
     
 
-    app.router.add_get('/ws', websocket_handler)
+    # app.router.add_get('/ws', websocket_handler)
     app.router.add_post("", manager_node.request_handler)
 
     
     # 启动后台任务
     app.on_startup.append(lambda app: manager_node.start_sessions())
+    # app.on_startup.append(lambda app: manager_node.start_worker_update_time_process())
     app.on_startup.append(lambda app: manager_node.start_worker_hdd_mem_task())
-    app.on_startup.append(lambda app: asyncio.create_task(check_heartbeats()))
     app.on_cleanup.append(manager_node.on_shutdown)
 
     return app

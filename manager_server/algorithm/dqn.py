@@ -42,12 +42,12 @@ class DQN(nn.Module):
 
 # 超参数设置
 gamma = 0.99  # 折扣因子
-epsilon_start = 0.8  # 探索率起始值
+epsilon_start = 0.7  # 探索率起始值
 epsilon_end = 0.1  # 探索率结束值
-epsilon_decay = 0.990  # 探索率衰减
-batch_size = 256  # 经验回放批次大小
-memory_size = 50000  # 经验回放存储大小
-target_update = 5  # 每 5 轮更新目标网络
+epsilon_decay = 0.995  # 探索率衰减
+batch_size = 128  # 经验回放批次大小
+memory_size = 100000  # 经验回放存储大小
+target_update = 3  # 每 5 轮更新目标网络
 learning_rate = 0.001  # 学习率
 
 # 初始化 DQN 网络和目标网络

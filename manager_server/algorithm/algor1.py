@@ -67,8 +67,6 @@ def Optimization_Model1(response_time, Task, WORKERS):
     if model.status == GRB.OPTIMAL:
         # 获取所有 x[worker.id].X 的值
         x_values = [x[worker.id].X for worker in WORKERS]
-        print(sum(x_values))
-        print(x_values)
 
         # 进行最小-最大归一化
         x_min = min(x_values)
