@@ -73,6 +73,9 @@ chronograph_file_handler.setFormatter(chronograph_log_formatter)
 chronograph_logger.addHandler(chronograph_file_handler)
 
 
+executor = ProcessPoolExecutor()
+
+
 # tasks waiting queue
 # for all tasks waiting timer
 
@@ -132,7 +135,7 @@ class Worker:
         self.session = None
         
         # timer process executor
-        self.ssh_executor = ProcessPoolExecutor()
+        self.ssh_executor = executor
 
         self.ssh_client = paramiko.SSHClient()
         self.ssh_hostname = self.ip
@@ -147,12 +150,15 @@ class Worker:
         # worker scores
         """ (connect sum + request number sum) / worker load max limit (/cpu) [0.8] """
         self.worker_load_score = 0
-        self.sum_request_number = 0
+        self.sum_request_number = asyncio.Queue()
+        self.sum_request_number_avg = 0
         self.worker_load_limit = kwargs.get('cpu_limit')
 
 
     async def update_score(self, new_task: Task): # type: ignore
-        self.worker_load_score = (self.processing_cnt * 0.01 + (self.sum_request_number + new_task.request_data['number']) * 0.01) / self.worker_load_limit
+        self.sum_request_number.put_nowait(new_task.request_data['number'])
+        self.sum_request_number_avg = self.sum_request_number_avg  / ((self.sum_request_number_avg + self.sum_request_number.get_nowait()) / 2)
+        self.worker_load_score = (((self.processing_cnt - 1) / self.processing_cnt)  + self.sum_request_number_avg) / self.worker_load_limit
 
 
     async def start_session(self):
@@ -245,6 +251,7 @@ class ManagerNode:
         self.round_robin_index = 0
         self.xgboost_model = kwargs.get("xgboost_model", None)
         self.workers: typing.List[Worker] = kwargs.get('workers', [])
+        self.process_executor = executor
 
         print("SSH connect started")
 
@@ -253,8 +260,8 @@ class ManagerNode:
         for worker in self.workers:
             # worker.hdd_task = asyncio.create_task(worker.hdd_usage_handle())
             # worker.mem_task = asyncio.create_task(worker.mem_usage_handle())
-            loop.run_in_executor(None, worker.hdd_usage_handle)
-            loop.run_in_executor(None, worker.mem_usage_handle)
+            loop.run_in_executor(self.process_executor, worker.hdd_usage_handle)
+            loop.run_in_executor(self.process_executor, worker.mem_usage_handle)
 
             
     

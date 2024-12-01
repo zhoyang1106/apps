@@ -4,17 +4,17 @@ service_name="node-service"
 
 # try remove service
 if sudo docker service rm "$service_name"; then
-    echo "服务 '$service_name' 移除成功。正在等待服务完全移除..."
+    echo "Service '$service_name' remove successfully. Waiting for all remove..."
 
     # check service
     while sudo docker service ls --filter name=^${service_name}$ --format "{{.Name}}" | grep -q "^${service_name}$"; do
-        echo "等待服务 '$service_name' 完全移除中..."
+        echo "Waiting '$service_name' all removing..."
         sleep 1
     done
 
-    echo "服务 '$service_name' 已完全移除。"
+    echo "Service '$service_name' removed."
 else
-    echo "移除服务 '$service_name' 失败或服务不存在。直接执行下一步。"
+    echo "Remove service '$service_name' failed. Next step start."
 fi
 
 # next command

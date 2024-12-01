@@ -30,9 +30,9 @@ async def init_app():
 
     # 初始化 ManagerNode
     manager_node = ManagerNode(xgboost_model=xgboost_model, workers=[
-        Worker(ip='192.168.0.150', port=8080, id='150', update_interval=0.01, cpu_limit=0.8, logger=stdout_logger),
-        Worker(ip='192.168.0.151', port=8080, id='151', update_interval=0.01, cpu_limit=0.8, logger=stdout_logger),
-        Worker(ip='192.168.0.152', port=8080, id='152', update_interval=0.01, cpu_limit=0.8, logger=stdout_logger),
+        Worker(ip='192.168.0.150', port=8080, id='150', update_interval=0.02, cpu_limit=0.8, logger=stdout_logger),
+        Worker(ip='192.168.0.151', port=8080, id='151', update_interval=0.02, cpu_limit=0.8, logger=stdout_logger),
+        Worker(ip='192.168.0.152', port=8080, id='152', update_interval=0.02, cpu_limit=0.8, logger=stdout_logger),
     ])
     
 
