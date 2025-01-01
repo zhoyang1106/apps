@@ -295,8 +295,8 @@ def choose_url_algorithm(name=None, **kwargs):
 
         epsilon = DQN.epsilon_start
         # choose worker
-        worker_index = DQN.DQN_Model(response_time, new_task, DQN.epsilon_start, worker_names_obj)
-        reward = DQN.get_reward(response_time[worker_index], worker_index)  # 긍정적인 보상 함수 사용
+        worker_index = DQN.DQN_Model(response_time, new_task, worker_names_obj)[0]
+        reward = DQN.DQN_Model(response_time, new_task, worker_names_obj)[1]   # 긍정적인 보상 함수 사용  
         new_task.reward += reward  # 보상 누적
 
         epsilon = max(DQN.epsilon_end, epsilon * DQN.epsilon_decay)                                                                                                                                                                                
@@ -305,8 +305,8 @@ def choose_url_algorithm(name=None, **kwargs):
             EPISODE += 1
 
             if EPISODE % DQN.target_update == 0:
-                DQN.soft_update_target_network()
-                EPISODE = 0
+                DQN.update_target_network()
+                EPISODE = 0 
 
 
         return worker_names_obj[worker_index]
@@ -455,6 +455,7 @@ async def handle_new_tasks(request_data: dict, headers: dict):
             end_time = time.time()
             print(request_data['algo_name'], worker_names, "cpu time:", end_time - start_time)
             new_task.opt_time = end_time - start_time
+            
         
         
         if not chosen_workers:

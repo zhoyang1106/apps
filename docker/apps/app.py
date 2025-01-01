@@ -1,4 +1,4 @@
-from aiohttp import web
+from aiohttp import web, ClientSession
 from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor
 import psutil  # type: ignore
 import os
@@ -6,6 +6,7 @@ import time
 import traceback
 import asyncio
 from pathlib import Path
+import requests
 
 
 # Global process pool
@@ -32,7 +33,8 @@ def is_prime(num):
             return False
     return True
 
-def prime_count(num):
+
+def prime_count(num,):
     start_time = time.time()
     
     # get child pid
@@ -53,12 +55,21 @@ def prime_count(num):
     return {"request_num": num, "return_result": sum, "user_cpu_time": user_times_diff, "system_cpu_time": system_times_diff, "real_process_time": time.time() - start_time, "start_process_time": start_time, "finish_time": time.time()}
 
 
+async def notfiy_manager_task_started(manager_url: str, payload: dict):
+    async with ClientSession() as session:
+        try:
+            await session.post(manager_url, json=payload)
+        except Exception as e:
+            print(f"Failed to notify manager: {e}")
+
+
 async def handle(request: web.Request):
     data = await request.json()
 
     try:
         # Run the blocking task
         loop = asyncio.get_event_loop()
+        
         # response_data = await loop.run_in_executor(thread_executor, prime_count, data["number"])
         response_data = await loop.run_in_executor(process_executor, prime_count, data["number"])
 

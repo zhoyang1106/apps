@@ -17,7 +17,6 @@ import random
 from concurrent.futures import ProcessPoolExecutor
 import json
 import threading
-import queue
 
 TIME_SLOT_LENGTH = 1  # ms
 SIMULATION_ITER_MAX = 1000 # max number of time slot
@@ -40,7 +39,6 @@ PARENT_DIR = Path(__file__).parent.parent
 
 # model_file = Path.cwd() / 'manage-server' / 'models' / 'number_time_LinearR.joblib'
 # linear_model: LinearRegression = joblib.load(model_file)
-
 
 
 
@@ -77,14 +75,9 @@ class Worker:
         self.url = f'http://{self.ip}:{self.port}'
         self.id = kwargs.get("id", f'x{random.randint(0, 1000)}')
         
+        # lock for value 
+        self.lock = asyncio.Lock()
         
-        # self.lock = asyncio.Lock()
-        self.lock = threading.Lock()
-
-        # self.timer_lock = multiprocessing.Lock()
-        
-        # self.wait_time_sync_queue = queue.Queue(maxsize=1)
-
         self.wait_time = 0.0
         self.wait_time_update_interval = kwargs.get('update_interval')
         self.wait_time_update_process = None
@@ -140,12 +133,13 @@ class Worker:
         self.ssh_client.close()
 
 
-    def wait_time_update(self):
+    async def wait_time_update(self):
         while self.stop_event:
-            # with self.lock:
-            self.wait_time -= self.wait_time_update_interval
-                # self.wait_time_sync_queue.put(self.wait_time)
-            time.sleep(self.wait_time_update_interval)
+            async with self.lock:
+                self.wait_time = max(self.wait_time - self.wait_time_update_interval, 0)
+                # logging.warning(f"Worker ID {self.id}, wait time {self.wait_time} s")
+                
+            await asyncio.sleep(self.wait_time_update_interval)
 
 
 
@@ -240,7 +234,7 @@ class ManagerNode:
         self.xgboost_model = kwargs.get("xgboost_model", None)
         self.workers: typing.List[Worker] = kwargs.get('workers', [])
         self.loggers: typing.List[logging.Logger] = kwargs.get('loggers', [])
-        self.ws_workers = typing.Dict[str, web.WebSocketResponse or None] = { worker.ip: None for worker in self.workers }
+
         print("SSH connect started")
 
     async def start_worker_hdd_mem_task(self):
@@ -252,10 +246,8 @@ class ManagerNode:
             
     
     async def start_worker_update_time_process(self):
-        loop = asyncio.get_running_loop()
         for worker in self.workers:
-            worker.wait_time_update_process = loop.run_in_executor(None, worker.wait_time_update)
-
+            worker.wait_time_update_process = asyncio.create_task(worker.wait_time_update())
 
     def predict_processed_time(self, task: Task):
         data = xgb.DMatrix([[task.request_data.get('number')]])
@@ -306,8 +298,8 @@ class ManagerNode:
             for worker in self.workers:
                 if worker.processing_cnt == 0:
                     chosen_worker = worker
-                    # with chosen_worker.lock:
-                    chosen_worker.wait_time = 0
+                    async with chosen_worker.lock:
+                        chosen_worker.wait_time = 0
                     break
             
             if not chosen_worker:
@@ -318,12 +310,10 @@ class ManagerNode:
                 raise Exception("chosen worker is None")
 
             new_task.worker_id = chosen_worker.id
-            # with chosen_worker.lock:
-            # if chosen_worker.wait_time_sync_queue.full():
-                # new_task.wait_time = chosen_worker.wait_time_sync_queue.get_nowait()
             new_task.wait_time = chosen_worker.wait_time
-            chosen_worker.wait_time += new_task.pred_processed_time
-            # chosen_worker.wait_time_sync_queue.put(chosen_worker.wait_time)  
+
+            async with chosen_worker.lock:
+                chosen_worker.wait_time += new_task.pred_processed_time    
 
             chosen_worker.processing_cnt += 1
                 
@@ -338,27 +328,18 @@ class ManagerNode:
         for worker in self.workers:
             await worker.start_session()
 
-
-
-    async def manager_ws_handler(request: web.Request, ):
-        ws = web.WebSocketResponse()
-        await ws.prepare(request)
-
-        worker_id = request.query.get("worker_id", "unknown-worker")
-        connceted_workers[worker_id] = ws
-
-
     # handle request main function
     async def request_handler(self, request: web.Request):
         try:
             # received time
             manager_received_timestamp = time.time()
-            self.loggers[0].info(f"received time: {manager_received_timestamp}\n")
+            # self.loggers[0].info(f"received time: {manager_received_timestamp}\n")
 
             # generate task and put into manager tasks queue
             request_data = await request.json()
             chosen_worker, new_task = await self.handle_new_task(request_data, request.headers)
             
+
             processing_cnt = chosen_worker.processing_cnt
             # fetch queue first task and send
             
@@ -374,24 +355,19 @@ class ManagerNode:
             before_forward_timestamp = time.time()
             before_forward_time = before_forward_timestamp - manager_received_timestamp
 
+            # print(f"worker {chosen_worker.id}, wait time {chosen_worker.wait_time} seconds")
 
             # send this task to worker node
             async with chosen_worker.session.post(url=chosen_worker.url, json=new_task.request_data, headers=new_task.headers) as response:
                 data: dict = await response.json()
-
-
-                # test 1: 直接赋值
-                # with chosen_worker.lock:
-                    # chosen_worker.wait_time = data['pred_task_wait_time']
-
-                # test 2: 使用差值消除
-                # with chosen_worker.lock:
-                chosen_worker.wait_time -= new_task.wait_time - (data['start_process_time'] - manager_received_timestamp)
+                
+                # 消除差异
+                async with chosen_worker.lock:
+                    chosen_worker.wait_time -= new_task.wait_time - (data['start_process_time'] - manager_received_timestamp)
 
                 # 记录任务结束时间
                 chosen_worker.finished_cnt += 1
                 chosen_worker.processing_cnt -= 1
-                # chosen_worker.wait_time -= data['start_process_time'] - manager_received_timestamp
                     
                 if "error" in data.keys():
                     data["success"] = 0
@@ -410,7 +386,7 @@ class ManagerNode:
 
                 self.loggers[0].info(f'{"-" * 40}\n')
                 self.loggers[0].info(f'{data}\n')
-                self.loggers[0].info(f"{'Before waiting jobs:':<50}{processing_cnt - 1:<20}\n")
+                self.loggers[0].info(f"{'Before waiting jobs:':<50}{processing_cnt:<20}\n")
                 self.loggers[0].info(f"{'worker real wait time:':<50}{data['real_task_wait_time']:<20}\n")
                 self.loggers[0].info(f"{'worker pred wait time:':<50}{data['pred_task_wait_time']:<20}\n")
                 self.loggers[0].info(f"{'task pred wait time:':<50}{data['processed_time']}")
@@ -439,8 +415,6 @@ class ManagerNode:
                 await worker.mem_task
                 worker.hdd_task = None
             await worker.close_session()
-
-            await worker.wait_time_update_process
             
             
             print("Session connection closed.")
