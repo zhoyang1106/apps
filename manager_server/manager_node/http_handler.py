@@ -345,7 +345,7 @@ class ManagerNode:
         await ws.prepare(request)
 
         worker_id = request.query.get("worker_id", "unknown-worker")
-        connceted_workers[worker_id] = ws
+        # connceted_workers[worker_id] = ws
 
 
     # handle request main function
