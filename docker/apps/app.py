@@ -1,12 +1,10 @@
-from aiohttp import web, ClientSession
+from aiohttp import web
 from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor
 import psutil  # type: ignore
 import os
 import time
 import traceback
 import asyncio
-from pathlib import Path
-import requests
 
 
 # Global process pool
@@ -55,13 +53,6 @@ def prime_count(num,):
     return {"request_num": num, "return_result": sum, "user_cpu_time": user_times_diff, "system_cpu_time": system_times_diff, "real_process_time": time.time() - start_time, "start_process_time": start_time, "finish_time": time.time()}
 
 
-async def notfiy_manager_task_started(manager_url: str, payload: dict):
-    async with ClientSession() as session:
-        try:
-            await session.post(manager_url, json=payload)
-        except Exception as e:
-            print(f"Failed to notify manager: {e}")
-
 
 async def handle(request: web.Request):
     data = await request.json()
@@ -74,11 +65,20 @@ async def handle(request: web.Request):
         response_data = await loop.run_in_executor(process_executor, prime_count, data["number"])
 
         # logging.info(f"Current Processing Tasks Sum: {PROCESSING_CNT}")
-
         return web.json_response(response_data, status=200)
     except Exception as e:
         error_message = traceback.format_exc()
         return web.json_response({"error": error_message}, status=500)
 
 
+def create_app():
+    app = web.Application()
+    
+    # 添加路由
+    app.router.add_post('', handle)
+    
+    return app
 
+if __name__ == '__main__':
+    app = create_app()
+    web.run_app(app, host='0.0.0.0', port=8080)

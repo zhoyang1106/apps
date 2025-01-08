@@ -1,18 +1,20 @@
 # manager_node/main.py
 import asyncio
 from pathlib import Path
-from aiohttp import web, ClientSession
+from aiohttp import web, ClientSession, ClientTimeout
 from utils import setup_logger, load_xgboost_model
 import traceback
 import time
 import xgboost as xgb
 
 WORKERS= [
-    'http://192.168.0.150',
-    'http://192.168.0.151',
-    'http://192.168.0.152',
+    'http://192.168.0.150:8080',
+    'http://192.168.0.151:8080',
+    'http://192.168.0.152:8080',
 ]
 
+
+ROUND_ROBIN_INDEX = 0
 
 def predict_processed_time(request_data: dict):
     data = xgb.DMatrix([[request_data.get('number')]])
@@ -31,19 +33,27 @@ def setup_loggers():
 
 
 def select_worker(app, algorithm_name):
+    global ROUND_ROBIN_INDEX
     if algorithm_name == 'shortest':
-        selected_worker = min(app['wait_times'], key=app['wait_times'].get)
+        selected_worker = None
+        min_finish = float('inf')
+
+        for worker, ft in app['finish_times'].items():
+            waiting = max(0, ft - time.time())
+            if waiting < min_finish:
+                min_finish = waiting
+                selected_worker = worker
         return selected_worker, WORKERS[selected_worker]
     elif algorithm_name == 'round-robin':
-        selected_worker = WORKERS[app['selected_worker_index']]
-        app['selected_worker_index'] += 1
-        return selected_worker
+        selected_worker = ROUND_ROBIN_INDEX
+        ROUND_ROBIN_INDEX = (ROUND_ROBIN_INDEX + 1) % len(WORKERS)
+        return selected_worker, WORKERS[selected_worker]
     else:
-        return None, None
+        return 0, WORKERS[0]
 
 
 # timer task
-async def countdown_task(app, worker, interval=0.1):
+async def countdown_task(app, worker, interval):
     try:
         while True:
             async with app['locks'][worker]:
@@ -53,58 +63,66 @@ async def countdown_task(app, worker, interval=0.1):
                         app['wait_times'][worker] = 0
                 else:
                     app['wait_times'][worker] = 0
-                    
+            if app['wait_times'][worker] > 0:
+                print(f"Worker {worker}, wait time: {app['wait_times'][worker]} s.")
             await asyncio.sleep(interval)            
     except asyncio.CancelledError:
         stdout_logger.info(f"Backend {worker} countdown task canceled.")
 
+
 # start
 async def on_startup(app):
-    app['wait_times'] = {i: 0 for i in range(len(WORKERS))}
     app['locks'] = {i: asyncio.Lock() for i in range(len(WORKERS))}
-    app['countdown_tasks'] = [
-        asyncio.create_task(countdown_task(app, i, interval=0.1))
-        for i in range(len(WORKERS))
-    ]
+    app['finish_times'] = {i: 0 for i in range(len(WORKERS))}
     app['sessions'] = {
-        i: ClientSession() for i in range(len(WORKERS))
+        i: ClientSession(timeout=ClientTimeout(None)) for i in range(len(WORKERS))
     }
 
+    
+
     print("All countdown tasks and client sessions started.")
+
 
 async def handle(request: web.Request):
     receive = time.time()
 
     try:
         request_data: dict = await request.json()
-        stdout_logger.info(request_data)
         request_id = request_data.get('request_id', None)
 
-        worker_id, worker_url = select_worker(request.app, request_data['algorithm_name'])
+        worker_id, worker_url = select_worker(request.app, request.headers['algorithm_name'])
 
-        task_predict_process_time = predict_processed_time()
+        task_predict_process_time = predict_processed_time(request_data)
 
+        now = time.time()
         async with request.app['locks'][worker_id]:
-            task_wait_time = request.app['wait_times'][worker_id]
-            request.app['wait_times'][worker_id] += task_predict_process_time
-            stdout_logger.info(f"Reqeust {request_id} to backend {worker_id}, add wait time {task_predict_process_time} s, all wait time {request.app['wait_times'][worker_id]} s")
+
+            ft = request.app['finish_times'][worker_id]
+            task_wait_time = max(0, ft - now)
+
+            new_finish = max(ft, time.time()) + task_predict_process_time
+            request.app['finish_times'][worker_id] = new_finish
+
+        stdout_logger.info(f"Reqeust {request_id} to backend {worker_id}, add wait time {task_predict_process_time} s, task wait time {task_wait_time} s")
 
         # request to backend
         async with request.app['sessions'][worker_id].post(worker_url, json=request_data) as resp:
             if resp.status != 200:
-                raise Exception(f"Backend {worker_id} return status {resp.status}")
+                raise Exception(f"Worker node {worker_id}, return status {resp.status}")
 
-            data: dict = await resp.json()
-            status = data.get("status", None)
-            task_start_time = data.get('start', receive)
-            task_real_process_time = data.get('real_process_time')
+            response_data: dict = await resp.json()
+            status = resp.status
+            task_start_time = response_data.get('start_process_time', receive)
+            task_real_process_time = response_data.get('real_process_time')
 
-            stdout_logger.info(f"Request {request_id} on backend {worker_id} process time {task_real_process_time} s, predict wait time {task_wait_time} s")
+            stdout_logger.info(f"Request {request_id} on worker node {worker_id}, real process time {task_real_process_time} s, predict wait time {task_wait_time} s")
 
             response = {
                 "status": status,
                 "calculate_wait_time": task_wait_time,
-                "real_wait_time": task_start_time - receive
+                "real_wait_time": task_start_time - receive,
+                "predict_process_time": task_predict_process_time, 
+                "real_process_time": task_real_process_time,
             }
 
             return web.json_response(response)
