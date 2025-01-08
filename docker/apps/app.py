@@ -62,7 +62,7 @@ async def handle(request: web.Request):
         loop = asyncio.get_event_loop()
         
         # response_data = await loop.run_in_executor(thread_executor, prime_count, data["number"])
-        response_data = await loop.run_in_executor(process_executor, prime_count, data["number"])
+        response_data = await loop.run_in_executor(thread_executor, prime_count, data["number"])
 
         # logging.info(f"Current Processing Tasks Sum: {PROCESSING_CNT}")
         return web.json_response(response_data, status=200)
