@@ -107,7 +107,9 @@ def update_weights(app, process_time, worker_id):
 
     task_counts = list(app['processing_tasks_sum'].values())
 
-    new_weight = max(0, 1 / (1 + alpha * process_time + task_counts[worker_id] * beta) - app['dynamic_weight'][worker_id])
+    new_weight = max(0.1, app['dynamic_weight'][worker_id] * 0.9 + 
+                 (1 / (1 + alpha * process_time + task_counts[worker_id] * beta)) * 0.1)
+
     app['dynamic_weight'][worker_id] = new_weight
 
     weights = []
