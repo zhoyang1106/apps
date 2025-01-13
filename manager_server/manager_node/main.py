@@ -34,16 +34,34 @@ def setup_loggers():
 
 def select_worker(app, algorithm_name):
     global ROUND_ROBIN_INDEX
+    
+    # shortest algorithm
     if algorithm_name == 'shortest':
-        selected_worker = min(app['wait_times'], key=app['wait_times'].get)
+        min_finish = float('inf')
+        now = time.time()
+        for worker_id, ft in app['finish_times'].items():
+            waiting = max(0, ft - now)
+            if waiting < min_finish:
+                min_finish = waiting
+                selected_worker = worker_id
         return selected_worker, WORKERS[selected_worker]
+    
+    # round-robin algorithm
     elif algorithm_name == 'round-robin':
         selected_worker = ROUND_ROBIN_INDEX
         ROUND_ROBIN_INDEX = (ROUND_ROBIN_INDEX + 1) % len(WORKERS)
         return selected_worker, WORKERS[selected_worker]
+    
+    # min-entropy algorithm
     elif algorithm_name == "min-entropy":
         selected_worker = max(app['dynamic_weight'], key=app['dynamic_weight'].get)
         return selected_worker, WORKERS[selected_worker]
+    
+    # least-connections algorithm
+    elif algorithm_name == "least-connect":
+        selected_worker = min(app['least_connect'], key=app['least_connect'].get)
+        return selected_worker, WORKERS[selected_worker]
+    
     else:
         return 0, WORKERS[0]
 
@@ -53,11 +71,11 @@ async def countdown_task(app, interval, worker_id):
     """Indecrease finish_times timestamp value"""
     try:
         while True:
-            async with app['locks'][worker_id]:  
-                new_wait_time = app['wait_times'][worker_id] - interval
-                if new_wait_time < 0:
-                    new_wait_time = 0
-                app['wait_times'][worker_id] = new_wait_time
+            # async with app['locks'][worker_id]:  
+            new_wait_time = app['wait_times'][worker_id] - interval
+            if new_wait_time < 0:
+                new_wait_time = 0
+            app['wait_times'][worker_id] = new_wait_time
             await asyncio.sleep(interval)
     except asyncio.CancelledError:
         print("Countdown task was canceled")
@@ -66,53 +84,85 @@ async def countdown_task(app, interval, worker_id):
 
 # start tasks
 async def on_startup(app):
-    app['wait_times'] = {i: 0 for i in range(len(WORKERS))}
+    # app['wait_times'] = {i: 0 for i in range(len(WORKERS))}
+    app['finish_times'] = {i: 0 for i in range(len(WORKERS))} 
     app['locks'] = {i: asyncio.Lock() for i in range(len(WORKERS))}
     app['sessions'] = {
         i: ClientSession(timeout=ClientTimeout(None)) for i in range(len(WORKERS))
     }
     # app['countdown_tasks'] = {i: asyncio.create_task(countdown_task(app, interval=0.1, worker_id=i)) for i in range(len(WORKERS))}
+    app['correct_finish_time_periodically'] = asyncio.create_task(correct_finish_time_periodically(app, interval=1))
     app['processing_tasks_sum'] = {i: 0 for i in range(len(WORKERS))}
+    app['least_connect'] = {i: 0 for i in range(len(WORKERS))}
     app['cumulative_times'] = {i: 0 for i in range(len(WORKERS))}
     app['dynamic_weight'] = {i: 1 / len(WORKERS) for i in range(len(WORKERS))}
     print("All countdown tasks and client sessions started.")
 
 
-def update_weights(app):
+def update_weights(app, process_time, worker_id):
+    alpha = 1.0     # complex weight
+    beta = 0.2      # quene size weight
+
     task_counts = list(app['processing_tasks_sum'].values())
-    cumulative_times = list(app['cumulative_times'].values())
+    new_weight = max(0, 1 / (1 + alpha * process_time + task_counts[worker_id] * beta) - app['dynamic_weight'][worker_id])
+
     weights = []
-    for n, t in zip(task_counts, cumulative_times):
-        weights.append(1 / (1 + n + t))
+
+    app['dynamic_weight'][worker_id] = new_weight
+    for n, t in zip(task_counts, app['dynamic_weight'].values()):
+        weights.append(1 / (1 + alpha * t + n * beta))
 
     total = sum(weights)
     for index, weight in enumerate(weights):
         app['dynamic_weight'][index] = weight / total
 
-async def handle(request: web.Request):
-    receive = time.time()
 
+async def correct_finish_time_periodically(app, interval):
+    while True:
+        for worker_id in range(len(WORKERS)):
+            async with app['locks'][worker_id]:
+                ft = app['finish_times'][worker_id]
+                if ft < time.time():
+                    app['finish_times'][worker_id] = time.time()
+        await asyncio.sleep(interval)
+
+
+async def handle(request: web.Request):
     try:
         request_data: dict = await request.json()
         request_id = request_data.get('request_id', None)
 
-        worker_id, worker_url = select_worker(request.app, request.headers['algorithm_name'])
+        algorithm_name = request.headers['algorithm_name']
+
+        worker_id, worker_url = select_worker(request.app, algorithm_name)
 
         task_predict_process_time = predict_processed_time(request_data)
 
+        now = time.time()
 
-        async with request.app['locks'][worker_id]:
-            current_wait_time = request.app['wait_times'][worker_id]
-            new_wait_time = current_wait_time + task_predict_process_time
-            request.app['wait_times'][worker_id] = new_wait_time
-            stdout_logger.info(f"Reqeust {request_id} to backend {worker_id}, add wait time {task_predict_process_time} s, task wait time {new_wait_time} s")
+        # least-connections algorithm
+        if algorithm_name == 'least-connect':
+            async with request.app['locks'][worker_id]:
+                request.app['least_connect'][worker_id] += 1
 
+        # shortest-pending-time algorithm
+        elif algorithm_name == 'shortest':
+            async with request.app['locks'][worker_id]:
+                ft = request.app['finish_times'][worker_id]
+                pending_time_estimated = max(0, ft - now)
 
-            # dynamic weight algorithm params update
-            request.app['processing_tasks_sum'][worker_id] = request.app['processing_tasks_sum'][worker_id] + 1
-            request.app['cumulative_times'][worker_id] = request.app['cumulative_times'][worker_id] + task_predict_process_time
-            update_weights(request.app)
+                new_finish_time = max(ft, now) + task_predict_process_time
+                request.app['finish_times'][worker_id] = new_finish_time
+            
+            stdout_logger.info(f"[SHORT] Request {request_id} -> worker {worker_id}, pending~{pending_time_estimated:.2f}s, predicted {task_predict_process_time:.2f}s")
 
+        # min-enrtopy algorithm params update
+        elif algorithm_name == 'min-entropy':
+            async with request.app['locks'][worker_id]:
+                request.app['processing_tasks_sum'][worker_id] = request.app['processing_tasks_sum'][worker_id] + 1
+                update_weights(request.app, worker_id=worker_id, process_time=task_predict_process_time)
+                stdout_logger.info(f"[REQUEST] {request_id} Weight updated.")
+                stdout_logger.info(f"[WEIGHT LIST]: [{[w for w in request.app['dynamic_weight'].values()]}]")
 
         # request to backend
         async with request.app['sessions'][worker_id].post(worker_url, json=request_data) as resp:
@@ -120,29 +170,52 @@ async def handle(request: web.Request):
                 raise Exception(f"Worker node {worker_id}, return status {resp.status}")
 
             response_data: dict = await resp.json()
-            status = resp.status
-            task_start_time = response_data.get('start_process_time', receive)
+
+        # shortest-pending-time
+        if algorithm_name == 'shortest':
             task_real_process_time = response_data.get('real_process_time')
+            real_wait_time = max(0, response_data.get('start_process_time', now) - now)
 
-            stdout_logger.info(f"Request {request_id} on worker node {worker_id}, real process time {task_real_process_time} s, predict wait time {new_wait_time} s")
+
+            difference = pending_time_estimated -real_wait_time
+            async with request.app['locks'][worker_id]:
+                current_ft = request.app['finish_times'][worker_id]
+                if current_ft > time.time():
+                    corrected_ft = current_ft - difference
+
+                    if corrected_ft < time.time():
+                        corrected_ft = time.time()
+
+                    request.app['finish_times'][worker_id] = corrected_ft
+
+                    stdout_logger.info(f"[CORRECT] Worker {worker_id} finish_time from {current_ft:.2f} -> {corrected_ft:.2f}, (difference={difference:.2f})")
+
+            stdout_logger.info(f"Request {request_id} on worker node {worker_id}, real process time {task_real_process_time} s, predict wait time {pending_time_estimated} s")
+
+            response_data = response_data | {
+                "worker": worker_id,
+                "status": resp.status,
+                "calculate_wait_time": pending_time_estimated,
+                "real_wait_time": real_wait_time,
+                "predict_process_time": task_predict_process_time,
+                "real_process_time": task_real_process_time,
+            }
+
+            print(response_data)
+
+        # min-entropy
+        elif algorithm_name == 'min-entropy':
+            async with request.app['locks'][worker_id]:
+                request.app['processing_tasks_sum'][worker_id] = request.app['processing_tasks_sum'][worker_id] - 1
+
         
-        async with request.app['locks'][worker_id]:
-            # dynamic weight algorithm params update
-            request.app['processing_tasks_sum'][worker_id] = request.app['processing_tasks_sum'][worker_id] - 1
+        # least-connect
+        elif algorithm_name == 'least-connect':
+            async with request.app['locks'][worker_id]:
+                request.app['least_connect'][worker_id] -= 1
 
-            # shortest pending time algorithem params update
-            request.app['wait_times'][worker_id] = max(0, request.app['wait_times'][worker_id] - new_wait_time)
-        
-
-        response = {
-            "status": status,
-            "calculate_wait_time": new_wait_time,
-            "real_wait_time": task_start_time - receive,
-            "predict_process_time": task_predict_process_time, 
-            "real_process_time": task_real_process_time,
-        }
-
-        return web.json_response(response)
+        return web.json_response(response_data)
+    
     except Exception as e:
         err_msg = traceback.format_exc()
         stdout_logger.error(f"Error in request handler: {err_msg}")
