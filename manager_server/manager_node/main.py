@@ -101,33 +101,33 @@ async def on_startup(app):
 
 def update_weights(app, process_time, worker_id):
     """
-    更新动态权重，结合任务复杂度、任务队列长度和当前连接数。
+    Update dynamic weights based on task complexity, queue size, and current connections.
     """
-    alpha = 1.0  # complex weight: 调节任务复杂度影响
-    beta = 0.5   # queue size weight: 调节任务队列长度影响
-    gamma = 0.8  # connection weight: 调节当前连接数影响
-    delta = 0.3  # 平滑因子: 控制历史权重和实时计算权重的比例
-    epsilon = 0.1  # 最小权重，避免节点被完全跳过
+    alpha = 1.0  # Complex weight: Adjusts the impact of task complexity
+    beta = 0.5   # Queue size weight: Adjusts the impact of the queue size
+    gamma = 0.8  # Connection weight: Adjusts the impact of the current connections
+    delta = 0.3  # Smoothing factor: Balances historical and real-time weight calculations
+    epsilon = 0.1  # Minimum weight to ensure no worker is completely skipped
 
-    # 获取当前状态
+    # Get current state
     task_counts = list(app['processing_tasks_sum'].values())
     current_connections = list(app['processing_tasks_sum'].values())
 
-    # 计算当前 worker 的新权重
+    # Calculate the new weight for the current worker
     new_weight_calculation = 1 / (
         1 + alpha * process_time + beta * task_counts[worker_id] + gamma * current_connections[worker_id]
     )
 
-    # 平滑更新权重
+    # Smoothly update the weight
     new_weight = max(
         epsilon,
         app['dynamic_weight'][worker_id] * (1 - delta) + new_weight_calculation * delta
     )
 
-    # 更新权重到 app
+    # Update the weight in the app
     app['dynamic_weight'][worker_id] = new_weight
 
-    # 归一化权重
+    # Normalize weights
     weights = []
     for i, (n, c, w) in enumerate(zip(task_counts, current_connections, app['dynamic_weight'].values())):
         weight = 1 / (1 + alpha * w + beta * n + gamma * c)
@@ -137,8 +137,9 @@ def update_weights(app, process_time, worker_id):
     for index, weight in enumerate(weights):
         app['dynamic_weight'][index] = weight / total
 
-    # 日志输出
+    # Log output
     stdout_logger.info(f"Updated weights: {app['dynamic_weight']}")
+
 
 
 async def correct_finish_time_periodically(app, interval):
