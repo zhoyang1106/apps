@@ -103,12 +103,14 @@ def update_weights(app, process_time, worker_id):
     alpha = 1.0     # complex weight
     beta = 0.2      # quene size weight
 
+    app['processing_tasks_sum'][worker_id] = app['processing_tasks_sum'][worker_id] + 1
+
     task_counts = list(app['processing_tasks_sum'].values())
+
     new_weight = max(0, 1 / (1 + alpha * process_time + task_counts[worker_id] * beta) - app['dynamic_weight'][worker_id])
+    app['dynamic_weight'][worker_id] = new_weight
 
     weights = []
-
-    app['dynamic_weight'][worker_id] = new_weight
     for n, t in zip(task_counts, app['dynamic_weight'].values()):
         weights.append(1 / (1 + alpha * t + n * beta))
 
@@ -159,7 +161,6 @@ async def handle(request: web.Request):
         # min-enrtopy algorithm params update
         elif algorithm_name == 'min-entropy':
             async with request.app['locks'][worker_id]:
-                request.app['processing_tasks_sum'][worker_id] = request.app['processing_tasks_sum'][worker_id] + 1
                 update_weights(request.app, worker_id=worker_id, process_time=task_predict_process_time)
                 stdout_logger.info(f"[REQUEST] {request_id} Weight updated.")
                 stdout_logger.info(f"[WEIGHT LIST]: [{[w for w in request.app['dynamic_weight'].values()]}]")
