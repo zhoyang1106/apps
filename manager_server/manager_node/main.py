@@ -100,24 +100,45 @@ async def on_startup(app):
 
 
 def update_weights(app, process_time, worker_id):
-    alpha = 1.0     # complex weight
-    beta = 0.2      # quene size weight
+    """
+    更新动态权重，结合任务复杂度、任务队列长度和当前连接数。
+    """
+    alpha = 1.0  # complex weight: 调节任务复杂度影响
+    beta = 0.5   # queue size weight: 调节任务队列长度影响
+    gamma = 0.8  # connection weight: 调节当前连接数影响
+    delta = 0.3  # 平滑因子: 控制历史权重和实时计算权重的比例
+    epsilon = 0.1  # 最小权重，避免节点被完全跳过
 
-    app['processing_tasks_sum'][worker_id] = app['processing_tasks_sum'][worker_id] + 1
-
+    # 获取当前状态
     task_counts = list(app['processing_tasks_sum'].values())
+    current_connections = list(app['least_connect'].values())
 
-    new_weight = max(0.1, app['dynamic_weight'][worker_id] * 0.9 + (1 / (1 + alpha * process_time + task_counts[worker_id] * beta)) * 0.1)
+    # 计算当前 worker 的新权重
+    new_weight_calculation = 1 / (
+        1 + alpha * process_time + beta * task_counts[worker_id] + gamma * current_connections[worker_id]
+    )
 
+    # 平滑更新权重
+    new_weight = max(
+        epsilon,
+        app['dynamic_weight'][worker_id] * (1 - delta) + new_weight_calculation * delta
+    )
+
+    # 更新权重到 app
     app['dynamic_weight'][worker_id] = new_weight
 
+    # 归一化权重
     weights = []
-    for n, t in zip(task_counts, app['dynamic_weight'].values()):
-        weights.append(1 / (1 + alpha * t + n * beta))
+    for i, (n, c, w) in enumerate(zip(task_counts, current_connections, app['dynamic_weight'].values())):
+        weight = 1 / (1 + alpha * w + beta * n + gamma * c)
+        weights.append(weight)
 
     total = sum(weights)
     for index, weight in enumerate(weights):
         app['dynamic_weight'][index] = weight / total
+
+    # 日志输出
+    stdout_logger.info(f"Updated weights: {app['dynamic_weight']}")
 
 
 async def correct_finish_time_periodically(app, interval):
