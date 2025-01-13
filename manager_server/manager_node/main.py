@@ -111,7 +111,7 @@ def update_weights(app, process_time, worker_id):
 
     # 获取当前状态
     task_counts = list(app['processing_tasks_sum'].values())
-    current_connections = list(app['least_connect'].values())
+    current_connections = list(app['processing_tasks_sum'].values())
 
     # 计算当前 worker 的新权重
     new_weight_calculation = 1 / (
