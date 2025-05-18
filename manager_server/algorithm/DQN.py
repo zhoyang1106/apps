@@ -1,4 +1,6 @@
 import random
+import time
+from datetime import datetime
 import numpy as np
 import torch
 import torch.nn as nn
@@ -94,33 +96,49 @@ def adjust_reward_with_distribution_shift(reward, distribution_shift):
     if adjusted_reward < 0:
         print("Warning: Adjusted reward is negative.")
     return max(adjusted_reward, 0)
-
+ 
 
 # 选择动作（epsilon-greedy 策略）
 def choose_action(state, epsilon_start, WORKERS):
     if random.uniform(0, 1) < epsilon_start:
-        if (len(WORKERS)) == 1:
-            return 0
-        elif (len(WORKERS)) == 2:
-            return random.choice([0, 1])
+        # if (len(WORKERS)) == 1:
+        #     return 0
+        # elif (len(WORKERS)) == 2:
+        #     return random.choice([0, 1])
+        # else:
+        #     return random.choice([0, 1, 2])
+        
+        # 只选择资源充足的服务器
+        available_actions = [i for i, worker in enumerate(WORKERS) if worker.hdd_usage < worker.max_hdd_usage and worker.mem_usage < worker.max_mem_usage]
+        if available_actions:
+            return random.choice(available_actions)
         else:
-            return random.choice([0, 1, 2])
+            return random.choice(range(len(WORKERS)))  # 如果所有服务器都超载，则随机选择
+        
     else:
         with torch.no_grad():
             state_tensor = torch.FloatTensor(state).unsqueeze(0)
             q_values = policy_net(state_tensor)
             q_values_list.append(q_values.mean().item())  # 记录 Q 值
-            if (len(WORKERS)) == 1:
-                return 0
-            elif (len(WORKERS)) == 2:
-                if q_values.argmax().item() == 0:
-                    return 0
-                elif q_values.argmax().item() == 1:
-                    return 1
-                else:
-                    return random.choice([0, 1])
-            else:
-                return q_values.argmax().item()
+
+            # 只选择资源充足的服务器
+            sorted_actions = q_values.argsort(descending=True).squeeze().tolist()
+            for action in sorted_actions:
+                if WORKERS[action].hdd_usage < WORKERS[action].max_hdd_usage and WORKERS[action].mem_usage < WORKERS[action].max_mem_usage:
+                    return action
+            return sorted_actions[0]  # 如果所有服务器超载，选择 Q 值最高的
+
+            # if (len(WORKERS)) == 1:
+            #     return 0
+            # elif (len(WORKERS)) == 2:
+            #     if q_values.argmax().item() == 0:
+            #         return 0
+            #     elif q_values.argmax().item() == 1:
+            #         return 1
+            #     else:
+            #         return random.choice([0, 1])
+            # else:
+            #     return q_values.argmax().item()
         
 
 # 更新 Double DQN 网络
@@ -164,8 +182,8 @@ def update_target_network():
 def get_state(Task, WORKERS):
     state = []
     for worker in WORKERS:
-        hdd_usage = worker.hdd_usage + Task.hdd_usage
-        mem_usage = worker.mem_usage + Task.mem_usage
+        hdd_usage = (worker.hdd_usage + Task.hdd_usage) / worker.max_hdd_usage
+        mem_usage = (worker.mem_usage + Task.mem_usage) / worker.max_mem_usage
         if hdd_usage <= worker.max_hdd_usage and mem_usage <= worker.max_mem_usage:
             state.append(hdd_usage)
             state.append(mem_usage)
@@ -186,16 +204,46 @@ def get_state(Task, WORKERS):
 
 
 
-def get_reward(response_time, action, distribution_shift):
-    # 如果 response_time 是一个浮点数，直接使用它计算奖励
-    server_response_time = response_time  # 不再需要索引，直接使用 response_time 作为浮点数
-    # reward_for_time = np.log(1.0 + 1.0 / (server_response_time + 1e-5))
-    # # 原始奖励
-    # reward = reward_for_time 
+# def get_reward(response_time, action, distribution_shift):
+#     # 如果 response_time 是一个浮点数，直接使用它计算奖励
+#     server_response_time = response_time  # 不再需要索引，直接使用 response_time 作为浮点数
+#     # reward_for_time = np.log(1.0 + 1.0 / (server_response_time + 1e-5))
+#     # # 原始奖励
+#     # reward = reward_for_time 
 
-    normalized_response_time = server_response_time / (np.max(server_response_time) + 1e-5)
-    reward_for_time = 1 / (normalized_response_time + 1e-3)  # 使用平滑项
-    adjusted_reward = reward_for_time - distribution_shift * 0.01
+#     normalized_response_time = server_response_time / (np.max(server_response_time) + 1e-5)
+#     reward_for_time = 1 / (normalized_response_time + 1e-3)  # 使用平滑项
+#     adjusted_reward = reward_for_time - distribution_shift * 0.01
+#     return max(adjusted_reward, 0)
+
+
+
+def get_reward(response_time, action, Task, WORKERS, distribution_shift):
+    ## 计算奖励：最小化响应时间，同时最小化 Memory 和 HDD 使用量
+
+    # 获取选定服务器的资源占用情况
+    mem_usage = WORKERS[action].mem_usage + Task.mem_usage
+    hdd_usage = WORKERS[action].hdd_usage + Task.hdd_usage
+
+    # 归一化响应时间 (目标：最小化)
+    normalized_response_time = response_time / (np.max(response_time) + 1e-5)
+    reward_time = 1 / (normalized_response_time + 1e-3)
+
+    # 归一化资源使用率 (目标：最小化)
+    normalized_mem_usage = mem_usage / WORKERS[action].max_mem_usage
+    normalized_hdd_usage = hdd_usage / WORKERS[action].max_hdd_usage
+
+    reward_mem = 1 / (normalized_mem_usage + 1e-3)
+    reward_hdd = 1 / (normalized_hdd_usage + 1e-3)
+
+    # 组合奖励 (加权求和)
+    alpha = 1/3  # 响应时间权重
+    beta = 1/3   # Memory 使用率权重
+    gamma = 1/3  # HDD 使用率权重
+
+    reward = alpha * reward_time + beta * reward_mem + gamma * reward_hdd
+    adjusted_reward = reward - distribution_shift * 0.01  # 受任务分布变化影响
+
     return max(adjusted_reward, 0)
 
 
@@ -232,9 +280,12 @@ def adjust_epsilon(distribution_shift, epsilon, min_epsilon=0.1, max_epsilon=0.9
 # 修改 DQN_Model，添加分布变化检测和动态探索调整
 def DQN_Model(response_time, Task, WORKERS):
     global epsilon  # 确保 epsilon 的动态调整
+    start_time = time.perf_counter_ns()
     state = get_state(Task, WORKERS)
     # print("Current state:", state)  # 打印当前状态
     action = choose_action(state, epsilon, WORKERS)  # 动态调整后的 epsilon
+    end_time = time.perf_counter_ns()
+    # print("dqn_CPU time:", end_time - start_time)
 
     observed_distributions.append(response_time)
     with torch.no_grad():
@@ -247,7 +298,8 @@ def DQN_Model(response_time, Task, WORKERS):
     else:
         distribution_shift = 0
 
-    reward = get_reward(response_time[action], action, distribution_shift)
+    reward = get_reward(response_time[action], action, Task, WORKERS, distribution_shift)
+             
 
     next_state = get_state(Task, WORKERS)
     done = False 
@@ -259,7 +311,7 @@ def DQN_Model(response_time, Task, WORKERS):
     load_distribution = [0, 0, 0]
     load_distribution[action] = 1  # 确保只在一个服务器上分配任务
 
-    return action, reward  # 返回 action
+    return [action, end_time - start_time], reward  # 返回 action
 
 
 

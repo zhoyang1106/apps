@@ -1,5 +1,11 @@
 #!/bin/bash
 
+
+# Restart container
+cd /home/pi/apps/scripts/
+./restart-redis-container.sh
+
+
 service_name="node-service"
 
 

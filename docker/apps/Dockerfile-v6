@@ -19,10 +19,10 @@ WORKDIR /app
 
 # 升级 pip 并安装 aiohttp
 RUN pip install --upgrade pip
-RUN pip install aiohttp psutil websockets
+RUN pip install aiohttp psutil
 
 # 复制当前目录的代码到容器中的工作目录
-COPY . /app
+COPY app-v6.py /app
 
 # 容器启动时运行的默认命令
-CMD [ "python3", "app.py" ]
+CMD [ "python3", "app-v6.py" ]

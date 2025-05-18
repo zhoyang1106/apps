@@ -1,7 +1,6 @@
 #!/bin/bash
 
-service_name="node-service"
-
+service_name="node-service-1"
 
 # find serivce 
 if sudo docker service ls | grep -q "$service_name"; then
@@ -27,6 +26,6 @@ echo "Restart service '$service_name'."
 
 # next command
 cd /home/pi/apps/scripts/
-./start-service.sh
+./start-service-1.sh
 
 cd /home/pi/apps

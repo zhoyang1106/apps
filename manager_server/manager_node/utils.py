@@ -14,11 +14,9 @@ def setup_logger(name, log_path: Path):
         logger.addHandler(handler)
     return logger
 
-def load_xgboost_model():
-    PARENT_DIR = Path(__file__).parent.parent
-    process_model_path = PARENT_DIR / "models" / "xgb_number_time_gbtree.json"
+def load_xgboost_model(model_path):
     xgboost_proc_model = xgb.Booster()
-    xgboost_proc_model.load_model(process_model_path)
+    xgboost_proc_model.load_model(model_path)
 
     print("Xgboost model started")
     return xgboost_proc_model

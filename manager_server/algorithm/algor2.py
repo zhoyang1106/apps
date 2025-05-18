@@ -1,4 +1,6 @@
 import random
+import time
+from datetime import datetime
 import numpy as np
 import torch
 import torch.nn as nn
@@ -11,72 +13,62 @@ from gurobipy import GRB
 
 
 
-# MEM_CAPACITY = 500*1_000_000 # 500 MB (use any number)
-# HDD_CAPACITY = 1.5*1_000_000_000 # 1.5GB (use any number)
-MEM_CAPACITY = 900*1_000_000 # 500 MB (use any number)       ## 서버의 실제값
-HDD_CAPACITY = 14.5*1_000_000_000 # 1.5GB (use any number)   ## 서버의 실제값
+
+
 
 
 
 
 def Optimization_Model2(response_time, Task, WORKERS):
     NUM_WORKERS = len(WORKERS)
-    # Create model
-    model = gp.Model("server_optimization")
-
-    # Create variables
-    # x = model.addVars(num_servers, lb=0.0, ub=1.0, vtype=GRB.CONTINUOUS, name="x")
-    x = model.addVars(NUM_WORKERS, vtype=GRB.BINARY, name="x")  # x = 0 or 1  이진법
-
-    # Set objective function：
     # weight (sum=1, random)
     alpha = 1/3
     beta = 1/3
     gamma = 1/3
-
     # Maximum value measured by 20000 tests
     hdd_usage_std_max = 0.166666667
     mem_usage_std_max = 0.166666667
+
     response_time_max = max(response_time)
+    
+    # Create model
+    start_modeling = time.perf_counter_ns()
+    model = gp.Model("server_optimization")
 
-    hdd_usage_std = gp.quicksum(((Task.hdd_usage * x[worker.id] + worker.hdd_usage) - (Task.hdd_usage + worker.hdd_usage) / NUM_WORKERS) ** 2 for worker in WORKERS)
-    mem_usage_std = gp.quicksum(((Task.mem_usage * x[worker.id] + worker.mem_usage) - (Task.mem_usage + worker.mem_usage) / NUM_WORKERS) ** 2 for worker in WORKERS)
+    # Create variables
+    x = model.addVars(NUM_WORKERS, vtype=GRB.BINARY, name="x")  # x = 0 or 1  이진법
 
-    model.setObjective(alpha / hdd_usage_std_max * hdd_usage_std + beta / mem_usage_std_max * mem_usage_std + gamma / response_time_max * gp.quicksum(response_time[worker.id] * x[worker.id] for worker in WORKERS), GRB.MINIMIZE)
+    hdd_usage_std = gp.quicksum(((Task.hdd_usage * x[j] + WORKERS[j].hdd_usage) - (Task.hdd_usage + WORKERS[j].hdd_usage) / NUM_WORKERS) ** 2 for j in range(NUM_WORKERS))
+    mem_usage_std = gp.quicksum(((Task.mem_usage * x[j] + WORKERS[j].mem_usage) - (Task.mem_usage + WORKERS[j].mem_usage) / NUM_WORKERS) ** 2 for j in range(NUM_WORKERS))
+
+    # Set objective function：
+    model.setObjective(alpha / hdd_usage_std_max * hdd_usage_std + beta / mem_usage_std_max * mem_usage_std + gamma / response_time_max * gp.quicksum(response_time[j] * x[j] for j in range(NUM_WORKERS)), GRB.MINIMIZE)
 
     # Add constraint
-    model.addConstr(gp.quicksum(x[worker.id] for worker in WORKERS) == 1, "c1")
-    for worker in WORKERS:
-    # maximum value
-        model.addConstr(worker.hdd_usage + Task.hdd_usage * x[worker.id] <= worker.max_hdd_usage)
-        model.addConstr(worker.mem_usage + Task.mem_usage * x[worker.id] <= worker.max_mem_usage)
+    model.addConstr(gp.quicksum(x[j] for j in range(NUM_WORKERS)) == 1, "c1")
+    for j in range(NUM_WORKERS):
+        # maximum value
+        model.addConstr(WORKERS[j].hdd_usage + Task.hdd_usage * x[j] <= WORKERS[j].max_hdd_usage)
+        model.addConstr(WORKERS[j].mem_usage + Task.mem_usage * x[j] <= WORKERS[j].max_mem_usage)
+    end_modeling = time.perf_counter_ns()
+    modeling_time = end_modeling - start_modeling
 
+
+    # model.setParam(GRB.Param.Threads, 4)
+    
     # Optimize modeal
+    start_solving = time.perf_counter_ns()
     model.optimize()
+    end_solving = time.perf_counter_ns()
+    solver_time = end_solving - start_solving
 
     # Print results
-    worker_index = 0
     if model.status == GRB.OPTIMAL:
+        # print("algor2_CPU time:", end_time - start_time)
         # 获取所有 x[worker.id].X 的值
-        x_values = [x[worker.id].X for worker in WORKERS]
-
-        # 进行最小-最大归一化
-        x_min = min(x_values)
-        x_max = max(x_values)
-
-        if x_max > x_min:  # 防止分母为0
-            normalized_x_values = [(x_val - x_min) / (x_max - x_min) for x_val in x_values]
-        else:
-            normalized_x_values = [0 for _ in x_values]  # 如果所有值相等，则归一化为 0
-
-        # 输出归一化结果并确定选定的 worker
-        for i, worker in enumerate(WORKERS):
-            if normalized_x_values[i] == 1.0:  # 选择归一化后非零的 worker
-                worker_index = i
-                print(i, worker_index)
-
-    return worker_index
-
+        x_values = [x[j].X for j in range(NUM_WORKERS)]
+    return x_values, (solver_time, modeling_time)
+    
 
 
 

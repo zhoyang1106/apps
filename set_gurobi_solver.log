@@ -1,0 +1,580 @@
+
+Gurobi 12.0.0 (armlinux64) logging started Tue Mar 18 22:30:20 2025
+
+Set parameter LogFile to value "set_gurobi_solver.log"
+Set parameter PoolSearchMode to value 2
+Set parameter PoolSolutions to value 10
+Set parameter PoolGap to value 0.2
+Gurobi Optimizer version 12.0.0 build v12.0.0rc1 (armlinux64 - "Debian GNU/Linux 12 (bookworm)")
+
+CPU model: ARM64
+Thread count: 4 physical cores, 4 logical processors, using up to 4 threads
+
+Non-default parameters:
+PoolSearchMode  2
+PoolGap  0.2
+
+Optimize a model with 1300 rows, 302 columns and 1500 nonzeros
+Model fingerprint: 0xdb5b8a41
+Variable types: 2 continuous, 300 integer (300 binary)
+Coefficient statistics:
+  Matrix range     [1e+00, 2e+02]
+  Objective range  [1e-11, 3e-01]
+  Bounds range     [1e+00, 1e+00]
+  RHS range        [1e+00, 2e+10]
+Warning: Model contains large rhs
+         Consider reformulating model or setting NumericFocus parameter
+         to avoid numerical issues.
+Found heuristic solution: objective 0.7580567
+Presolve removed 1100 rows and 0 columns
+Presolve time: 0.05s
+Presolved: 200 rows, 302 columns, 500 nonzeros
+Variable types: 2 continuous, 300 integer (300 binary)
+
+Root relaxation: objective 7.580567e-01, 101 iterations, 0.01 seconds (0.00 work units)
+
+    Nodes    |    Current Node    |     Objective Bounds      |     Work
+ Expl Unexpl |  Obj  Depth IntInf | Incumbent    BestBd   Gap | It/Node Time
+
+     0     0          -    0         0.75806    0.75806  0.00%     -    0s
+
+Optimal solution found at node 0 - now completing solution pool...
+
+    Nodes    |    Current Node    |      Pool Obj. Bounds     |     Work
+             |                    |   Worst                   |
+ Expl Unexpl |  Obj  Depth IntInf | Incumbent    BestBd   Gap | It/Node Time
+
+     0     0          -    0               -    0.75806      -     -    0s
+     0     0          -    0               -    0.75806      -     -    0s
+     0     2          -    0               -    0.75806      -     -    0s
+
+Explored 71 nodes (112 simplex iterations) in 0.78 seconds (0.00 work units)
+Thread count was 4 (of 4 available processors)
+
+Solution count 10: 0.758057 0.758057 0.758057 ... 0.758057
+No other solutions better than 0.758057
+
+Optimal solution found (tolerance 1.00e-04)
+Best objective 7.580567372281e-01, best bound 7.580567372281e-01, gap 0.0000%
+
+Gurobi 12.0.0 (armlinux64) logging started Tue Mar 18 22:30:21 2025
+
+Set parameter LogFile to value "set_gurobi_solver.log"
+Set parameter PoolSearchMode to value 2
+Set parameter PoolSolutions to value 10
+Set parameter PoolGap to value 0.2
+Gurobi Optimizer version 12.0.0 build v12.0.0rc1 (armlinux64 - "Debian GNU/Linux 12 (bookworm)")
+
+CPU model: ARM64
+Thread count: 4 physical cores, 4 logical processors, using up to 4 threads
+
+Non-default parameters:
+PoolSearchMode  2
+PoolGap  0.2
+
+Optimize a model with 1300 rows, 302 columns and 1500 nonzeros
+Model fingerprint: 0xdb5b8a41
+Variable types: 2 continuous, 300 integer (300 binary)
+Coefficient statistics:
+  Matrix range     [1e+00, 2e+02]
+  Objective range  [1e-11, 3e-01]
+  Bounds range     [1e+00, 1e+00]
+  RHS range        [1e+00, 2e+10]
+Warning: Model contains large rhs
+         Consider reformulating model or setting NumericFocus parameter
+         to avoid numerical issues.
+Found heuristic solution: objective 0.7580567
+Presolve removed 1100 rows and 0 columns
+Presolve time: 0.00s
+Presolved: 200 rows, 302 columns, 500 nonzeros
+Variable types: 2 continuous, 300 integer (300 binary)
+
+Root relaxation: objective 7.580567e-01, 101 iterations, 0.00 seconds (0.00 work units)
+
+    Nodes    |    Current Node    |     Objective Bounds      |     Work
+ Expl Unexpl |  Obj  Depth IntInf | Incumbent    BestBd   Gap | It/Node Time
+
+     0     0          -    0         0.75806    0.75806  0.00%     -    0s
+
+Optimal solution found at node 0 - now completing solution pool...
+
+    Nodes    |    Current Node    |      Pool Obj. Bounds     |     Work
+             |                    |   Worst                   |
+ Expl Unexpl |  Obj  Depth IntInf | Incumbent    BestBd   Gap | It/Node Time
+
+     0     0          -    0               -    0.75806      -     -    0s
+     0     0          -    0               -    0.75806      -     -    0s
+     0     2          -    0               -    0.75806      -     -    0s
+
+Explored 71 nodes (112 simplex iterations) in 0.03 seconds (0.00 work units)
+Thread count was 4 (of 4 available processors)
+
+Solution count 10: 0.758057 0.758057 0.758057 ... 0.758057
+No other solutions better than 0.758057
+
+Optimal solution found (tolerance 1.00e-04)
+Best objective 7.580567372281e-01, best bound 7.580567372281e-01, gap 0.0000%
+
+Gurobi 12.0.0 (armlinux64) logging started Thu Apr 24 14:56:28 2025
+
+Set parameter LogFile to value "set_gurobi_solver.log"
+Set parameter PoolSearchMode to value 2
+Set parameter PoolSolutions to value 10
+Set parameter PoolGap to value 0.2
+Gurobi Optimizer version 12.0.0 build v12.0.0rc1 (armlinux64 - "Debian GNU/Linux 12 (bookworm)")
+
+CPU model: ARM64
+Thread count: 4 physical cores, 4 logical processors, using up to 4 threads
+
+Non-default parameters:
+PoolSearchMode  2
+PoolGap  0.2
+
+Optimize a model with 130 rows, 32 columns and 150 nonzeros
+Model fingerprint: 0xb8594a72
+Variable types: 2 continuous, 30 integer (30 binary)
+Coefficient statistics:
+  Matrix range     [1e+00, 2e+02]
+  Objective range  [1e-11, 3e-01]
+  Bounds range     [1e+00, 1e+00]
+  RHS range        [1e+00, 3e+10]
+Warning: Model contains large rhs
+         Consider reformulating model or setting NumericFocus parameter
+         to avoid numerical issues.
+Found heuristic solution: objective 0.7139712
+Presolve removed 110 rows and 0 columns
+Presolve time: 0.00s
+Presolved: 20 rows, 32 columns, 50 nonzeros
+Variable types: 2 continuous, 30 integer (30 binary)
+
+Root relaxation: objective 7.139712e-01, 10 iterations, 0.02 seconds (0.00 work units)
+
+    Nodes    |    Current Node    |     Objective Bounds      |     Work
+ Expl Unexpl |  Obj  Depth IntInf | Incumbent    BestBd   Gap | It/Node Time
+
+     0     0          -    0         0.71397    0.71397  0.00%     -    0s
+
+Optimal solution found at node 0 - now completing solution pool...
+
+    Nodes    |    Current Node    |      Pool Obj. Bounds     |     Work
+             |                    |   Worst                   |
+ Expl Unexpl |  Obj  Depth IntInf | Incumbent    BestBd   Gap | It/Node Time
+
+     0     0          -    0               -    0.71397      -     -    0s
+     0     0          -    0               -    0.71397      -     -    0s
+     0     2          -    0               -    0.71397      -     -    0s
+
+Explored 71 nodes (21 simplex iterations) in 0.08 seconds (0.00 work units)
+Thread count was 4 (of 4 available processors)
+
+Solution count 10: 0.713971 0.713971 0.713971 ... 0.713971
+No other solutions better than 0.713971
+
+Optimal solution found (tolerance 1.00e-04)
+Best objective 7.139712227419e-01, best bound 7.139712227419e-01, gap 0.0000%
+
+Gurobi 12.0.0 (armlinux64) logging started Thu Apr 24 14:56:28 2025
+
+Set parameter LogFile to value "set_gurobi_solver.log"
+Set parameter PoolSearchMode to value 2
+Set parameter PoolSolutions to value 10
+Set parameter PoolGap to value 0.2
+Gurobi Optimizer version 12.0.0 build v12.0.0rc1 (armlinux64 - "Debian GNU/Linux 12 (bookworm)")
+
+CPU model: ARM64
+Thread count: 4 physical cores, 4 logical processors, using up to 4 threads
+
+Non-default parameters:
+PoolSearchMode  2
+PoolGap  0.2
+
+Optimize a model with 130 rows, 32 columns and 150 nonzeros
+Model fingerprint: 0xb8594a72
+Variable types: 2 continuous, 30 integer (30 binary)
+Coefficient statistics:
+  Matrix range     [1e+00, 2e+02]
+  Objective range  [1e-11, 3e-01]
+  Bounds range     [1e+00, 1e+00]
+  RHS range        [1e+00, 3e+10]
+Warning: Model contains large rhs
+         Consider reformulating model or setting NumericFocus parameter
+         to avoid numerical issues.
+Found heuristic solution: objective 0.7139712
+Presolve removed 110 rows and 0 columns
+Presolve time: 0.00s
+Presolved: 20 rows, 32 columns, 50 nonzeros
+Variable types: 2 continuous, 30 integer (30 binary)
+
+Root relaxation: objective 7.139712e-01, 10 iterations, 0.00 seconds (0.00 work units)
+
+    Nodes    |    Current Node    |     Objective Bounds      |     Work
+ Expl Unexpl |  Obj  Depth IntInf | Incumbent    BestBd   Gap | It/Node Time
+
+     0     0          -    0         0.71397    0.71397  0.00%     -    0s
+
+Optimal solution found at node 0 - now completing solution pool...
+
+    Nodes    |    Current Node    |      Pool Obj. Bounds     |     Work
+             |                    |   Worst                   |
+ Expl Unexpl |  Obj  Depth IntInf | Incumbent    BestBd   Gap | It/Node Time
+
+     0     0          -    0               -    0.71397      -     -    0s
+     0     0          -    0               -    0.71397      -     -    0s
+     0     2          -    0               -    0.71397      -     -    0s
+
+Explored 71 nodes (21 simplex iterations) in 0.02 seconds (0.00 work units)
+Thread count was 4 (of 4 available processors)
+
+Solution count 10: 0.713971 0.713971 0.713971 ... 0.713971
+No other solutions better than 0.713971
+
+Optimal solution found (tolerance 1.00e-04)
+Best objective 7.139712227419e-01, best bound 7.139712227419e-01, gap 0.0000%
+
+Gurobi 12.0.0 (armlinux64) logging started Thu Apr 24 14:59:21 2025
+
+Set parameter LogFile to value "set_gurobi_solver.log"
+Set parameter PoolSearchMode to value 2
+Set parameter PoolSolutions to value 10
+Set parameter PoolGap to value 0.2
+Gurobi Optimizer version 12.0.0 build v12.0.0rc1 (armlinux64 - "Debian GNU/Linux 12 (bookworm)")
+
+CPU model: ARM64
+Thread count: 4 physical cores, 4 logical processors, using up to 4 threads
+
+Non-default parameters:
+PoolSearchMode  2
+PoolGap  0.2
+
+Optimize a model with 130 rows, 32 columns and 150 nonzeros
+Model fingerprint: 0x049669d8
+Variable types: 2 continuous, 30 integer (30 binary)
+Coefficient statistics:
+  Matrix range     [1e+00, 2e+02]
+  Objective range  [1e-11, 3e-01]
+  Bounds range     [1e+00, 1e+00]
+  RHS range        [1e+00, 3e+10]
+Warning: Model contains large rhs
+         Consider reformulating model or setting NumericFocus parameter
+         to avoid numerical issues.
+Found heuristic solution: objective 0.7117498
+Presolve removed 110 rows and 0 columns
+Presolve time: 0.00s
+Presolved: 20 rows, 32 columns, 50 nonzeros
+Variable types: 2 continuous, 30 integer (30 binary)
+
+Root relaxation: objective 7.117497e-01, 10 iterations, 0.00 seconds (0.00 work units)
+
+    Nodes    |    Current Node    |     Objective Bounds      |     Work
+ Expl Unexpl |  Obj  Depth IntInf | Incumbent    BestBd   Gap | It/Node Time
+
+*    0     0               0       0.7117497    0.71175  0.00%     -    0s
+
+Optimal solution found at node 0 - now completing solution pool...
+
+    Nodes    |    Current Node    |      Pool Obj. Bounds     |     Work
+             |                    |   Worst                   |
+ Expl Unexpl |  Obj  Depth IntInf | Incumbent    BestBd   Gap | It/Node Time
+
+     0     0          -    0               -    0.71175      -     -    0s
+     0     0          -    0               -    0.71175      -     -    0s
+     0     2          -    0               -    0.71175      -     -    0s
+
+Explored 71 nodes (49 simplex iterations) in 0.02 seconds (0.00 work units)
+Thread count was 4 (of 4 available processors)
+
+Solution count 10: 0.71175 0.71175 0.71175 ... 0.71175
+No other solutions better than 0.71175
+
+Optimal solution found (tolerance 1.00e-04)
+Best objective 7.117497276241e-01, best bound 7.117497276241e-01, gap 0.0000%
+
+Gurobi 12.0.0 (armlinux64) logging started Thu Apr 24 14:59:21 2025
+
+Set parameter LogFile to value "set_gurobi_solver.log"
+Set parameter PoolSearchMode to value 2
+Set parameter PoolSolutions to value 10
+Set parameter PoolGap to value 0.2
+Gurobi Optimizer version 12.0.0 build v12.0.0rc1 (armlinux64 - "Debian GNU/Linux 12 (bookworm)")
+
+CPU model: ARM64
+Thread count: 4 physical cores, 4 logical processors, using up to 4 threads
+
+Non-default parameters:
+PoolSearchMode  2
+PoolGap  0.2
+
+Optimize a model with 130 rows, 32 columns and 150 nonzeros
+Model fingerprint: 0x049669d8
+Variable types: 2 continuous, 30 integer (30 binary)
+Coefficient statistics:
+  Matrix range     [1e+00, 2e+02]
+  Objective range  [1e-11, 3e-01]
+  Bounds range     [1e+00, 1e+00]
+  RHS range        [1e+00, 3e+10]
+Warning: Model contains large rhs
+         Consider reformulating model or setting NumericFocus parameter
+         to avoid numerical issues.
+Found heuristic solution: objective 0.7117498
+Presolve removed 110 rows and 0 columns
+Presolve time: 0.00s
+Presolved: 20 rows, 32 columns, 50 nonzeros
+Variable types: 2 continuous, 30 integer (30 binary)
+
+Root relaxation: objective 7.117497e-01, 10 iterations, 0.00 seconds (0.00 work units)
+
+    Nodes    |    Current Node    |     Objective Bounds      |     Work
+ Expl Unexpl |  Obj  Depth IntInf | Incumbent    BestBd   Gap | It/Node Time
+
+*    0     0               0       0.7117497    0.71175  0.00%     -    0s
+
+Optimal solution found at node 0 - now completing solution pool...
+
+    Nodes    |    Current Node    |      Pool Obj. Bounds     |     Work
+             |                    |   Worst                   |
+ Expl Unexpl |  Obj  Depth IntInf | Incumbent    BestBd   Gap | It/Node Time
+
+     0     0          -    0               -    0.71175      -     -    0s
+     0     0          -    0               -    0.71175      -     -    0s
+     0     2          -    0               -    0.71175      -     -    0s
+
+Explored 71 nodes (49 simplex iterations) in 0.02 seconds (0.00 work units)
+Thread count was 4 (of 4 available processors)
+
+Solution count 10: 0.71175 0.71175 0.71175 ... 0.71175
+No other solutions better than 0.71175
+
+Optimal solution found (tolerance 1.00e-04)
+Best objective 7.117497276241e-01, best bound 7.117497276241e-01, gap 0.0000%
+
+Gurobi 12.0.0 (armlinux64) logging started Thu Apr 24 15:04:15 2025
+
+Set parameter LogFile to value "set_gurobi_solver.log"
+Set parameter PoolSearchMode to value 2
+Set parameter PoolSolutions to value 10
+Set parameter PoolGap to value 0.2
+Gurobi Optimizer version 12.0.0 build v12.0.0rc1 (armlinux64 - "Debian GNU/Linux 12 (bookworm)")
+
+CPU model: ARM64
+Thread count: 4 physical cores, 4 logical processors, using up to 4 threads
+
+Non-default parameters:
+PoolSearchMode  2
+PoolGap  0.2
+
+Optimize a model with 130 rows, 32 columns and 150 nonzeros
+Model fingerprint: 0x69dacf1b
+Variable types: 2 continuous, 30 integer (30 binary)
+Coefficient statistics:
+  Matrix range     [1e+00, 2e+02]
+  Objective range  [1e-11, 3e-01]
+  Bounds range     [1e+00, 1e+00]
+  RHS range        [1e+00, 3e+10]
+Warning: Model contains large rhs
+         Consider reformulating model or setting NumericFocus parameter
+         to avoid numerical issues.
+Found heuristic solution: objective 0.7148251
+Presolve removed 110 rows and 0 columns
+Presolve time: 0.00s
+Presolved: 20 rows, 32 columns, 50 nonzeros
+Variable types: 2 continuous, 30 integer (30 binary)
+
+Root relaxation: objective 7.148251e-01, 10 iterations, 0.00 seconds (0.00 work units)
+
+    Nodes    |    Current Node    |     Objective Bounds      |     Work
+ Expl Unexpl |  Obj  Depth IntInf | Incumbent    BestBd   Gap | It/Node Time
+
+     0     0          -    0         0.71483    0.71483  0.00%     -    0s
+
+Optimal solution found at node 0 - now completing solution pool...
+
+    Nodes    |    Current Node    |      Pool Obj. Bounds     |     Work
+             |                    |   Worst                   |
+ Expl Unexpl |  Obj  Depth IntInf | Incumbent    BestBd   Gap | It/Node Time
+
+     0     0          -    0               -    0.71483      -     -    0s
+     0     0          -    0               -    0.71483      -     -    0s
+     0     2          -    0               -    0.71483      -     -    0s
+
+Explored 71 nodes (21 simplex iterations) in 0.03 seconds (0.00 work units)
+Thread count was 4 (of 4 available processors)
+
+Solution count 10: 0.714825 0.714825 0.714825 ... 0.714825
+No other solutions better than 0.714825
+
+Optimal solution found (tolerance 1.00e-04)
+Best objective 7.148250919894e-01, best bound 7.148250919894e-01, gap 0.0000%
+
+Gurobi 12.0.0 (armlinux64) logging started Thu Apr 24 15:04:16 2025
+
+Set parameter LogFile to value "set_gurobi_solver.log"
+Set parameter PoolSearchMode to value 2
+Set parameter PoolSolutions to value 10
+Set parameter PoolGap to value 0.2
+Gurobi Optimizer version 12.0.0 build v12.0.0rc1 (armlinux64 - "Debian GNU/Linux 12 (bookworm)")
+
+CPU model: ARM64
+Thread count: 4 physical cores, 4 logical processors, using up to 4 threads
+
+Non-default parameters:
+PoolSearchMode  2
+PoolGap  0.2
+
+Optimize a model with 130 rows, 32 columns and 150 nonzeros
+Model fingerprint: 0x69dacf1b
+Variable types: 2 continuous, 30 integer (30 binary)
+Coefficient statistics:
+  Matrix range     [1e+00, 2e+02]
+  Objective range  [1e-11, 3e-01]
+  Bounds range     [1e+00, 1e+00]
+  RHS range        [1e+00, 3e+10]
+Warning: Model contains large rhs
+         Consider reformulating model or setting NumericFocus parameter
+         to avoid numerical issues.
+Found heuristic solution: objective 0.7148251
+Presolve removed 110 rows and 0 columns
+Presolve time: 0.00s
+Presolved: 20 rows, 32 columns, 50 nonzeros
+Variable types: 2 continuous, 30 integer (30 binary)
+
+Root relaxation: objective 7.148251e-01, 10 iterations, 0.00 seconds (0.00 work units)
+
+    Nodes    |    Current Node    |     Objective Bounds      |     Work
+ Expl Unexpl |  Obj  Depth IntInf | Incumbent    BestBd   Gap | It/Node Time
+
+     0     0          -    0         0.71483    0.71483  0.00%     -    0s
+
+Optimal solution found at node 0 - now completing solution pool...
+
+    Nodes    |    Current Node    |      Pool Obj. Bounds     |     Work
+             |                    |   Worst                   |
+ Expl Unexpl |  Obj  Depth IntInf | Incumbent    BestBd   Gap | It/Node Time
+
+     0     0          -    0               -    0.71483      -     -    0s
+     0     0          -    0               -    0.71483      -     -    0s
+     0     2          -    0               -    0.71483      -     -    0s
+
+Explored 71 nodes (21 simplex iterations) in 0.02 seconds (0.00 work units)
+Thread count was 4 (of 4 available processors)
+
+Solution count 10: 0.714825 0.714825 0.714825 ... 0.714825
+No other solutions better than 0.714825
+
+Optimal solution found (tolerance 1.00e-04)
+Best objective 7.148250919894e-01, best bound 7.148250919894e-01, gap 0.0000%
+
+Gurobi 12.0.0 (armlinux64) logging started Thu Apr 24 15:11:20 2025
+
+Set parameter LogFile to value "set_gurobi_solver.log"
+Set parameter PoolSearchMode to value 2
+Set parameter PoolSolutions to value 10
+Set parameter PoolGap to value 0.2
+Gurobi Optimizer version 12.0.0 build v12.0.0rc1 (armlinux64 - "Debian GNU/Linux 12 (bookworm)")
+
+CPU model: ARM64
+Thread count: 4 physical cores, 4 logical processors, using up to 4 threads
+
+Non-default parameters:
+PoolSearchMode  2
+PoolGap  0.2
+
+Optimize a model with 130 rows, 32 columns and 150 nonzeros
+Model fingerprint: 0x70b24549
+Variable types: 2 continuous, 30 integer (30 binary)
+Coefficient statistics:
+  Matrix range     [1e+00, 2e+02]
+  Objective range  [1e-11, 3e-01]
+  Bounds range     [1e+00, 1e+00]
+  RHS range        [1e+00, 3e+10]
+Warning: Model contains large rhs
+         Consider reformulating model or setting NumericFocus parameter
+         to avoid numerical issues.
+Found heuristic solution: objective 0.7130112
+Presolve removed 110 rows and 0 columns
+Presolve time: 0.00s
+Presolved: 20 rows, 32 columns, 50 nonzeros
+Variable types: 2 continuous, 30 integer (30 binary)
+
+Root relaxation: objective 7.130112e-01, 10 iterations, 0.00 seconds (0.00 work units)
+
+    Nodes    |    Current Node    |     Objective Bounds      |     Work
+ Expl Unexpl |  Obj  Depth IntInf | Incumbent    BestBd   Gap | It/Node Time
+
+     0     0          -    0         0.71301    0.71301  0.00%     -    0s
+
+Optimal solution found at node 0 - now completing solution pool...
+
+    Nodes    |    Current Node    |      Pool Obj. Bounds     |     Work
+             |                    |   Worst                   |
+ Expl Unexpl |  Obj  Depth IntInf | Incumbent    BestBd   Gap | It/Node Time
+
+     0     0          -    0               -    0.71301      -     -    0s
+     0     0          -    0               -    0.71301      -     -    0s
+     0     2          -    0               -    0.71301      -     -    0s
+
+Explored 71 nodes (21 simplex iterations) in 0.02 seconds (0.00 work units)
+Thread count was 4 (of 4 available processors)
+
+Solution count 10: 0.713011 0.713011 0.713011 ... 0.713011
+No other solutions better than 0.713011
+
+Optimal solution found (tolerance 1.00e-04)
+Best objective 7.130111579914e-01, best bound 7.130111579914e-01, gap 0.0000%
+
+Gurobi 12.0.0 (armlinux64) logging started Thu Apr 24 15:11:20 2025
+
+Set parameter LogFile to value "set_gurobi_solver.log"
+Set parameter PoolSearchMode to value 2
+Set parameter PoolSolutions to value 10
+Set parameter PoolGap to value 0.2
+Gurobi Optimizer version 12.0.0 build v12.0.0rc1 (armlinux64 - "Debian GNU/Linux 12 (bookworm)")
+
+CPU model: ARM64
+Thread count: 4 physical cores, 4 logical processors, using up to 4 threads
+
+Non-default parameters:
+PoolSearchMode  2
+PoolGap  0.2
+
+Optimize a model with 130 rows, 32 columns and 150 nonzeros
+Model fingerprint: 0x70b24549
+Variable types: 2 continuous, 30 integer (30 binary)
+Coefficient statistics:
+  Matrix range     [1e+00, 2e+02]
+  Objective range  [1e-11, 3e-01]
+  Bounds range     [1e+00, 1e+00]
+  RHS range        [1e+00, 3e+10]
+Warning: Model contains large rhs
+         Consider reformulating model or setting NumericFocus parameter
+         to avoid numerical issues.
+Found heuristic solution: objective 0.7130112
+Presolve removed 110 rows and 0 columns
+Presolve time: 0.00s
+Presolved: 20 rows, 32 columns, 50 nonzeros
+Variable types: 2 continuous, 30 integer (30 binary)
+
+Root relaxation: objective 7.130112e-01, 10 iterations, 0.00 seconds (0.00 work units)
+
+    Nodes    |    Current Node    |     Objective Bounds      |     Work
+ Expl Unexpl |  Obj  Depth IntInf | Incumbent    BestBd   Gap | It/Node Time
+
+     0     0          -    0         0.71301    0.71301  0.00%     -    0s
+
+Optimal solution found at node 0 - now completing solution pool...
+
+    Nodes    |    Current Node    |      Pool Obj. Bounds     |     Work
+             |                    |   Worst                   |
+ Expl Unexpl |  Obj  Depth IntInf | Incumbent    BestBd   Gap | It/Node Time
+
+     0     0          -    0               -    0.71301      -     -    0s
+     0     0          -    0               -    0.71301      -     -    0s
+     0     2          -    0               -    0.71301      -     -    0s
+
+Explored 71 nodes (21 simplex iterations) in 0.02 seconds (0.00 work units)
+Thread count was 4 (of 4 available processors)
+
+Solution count 10: 0.713011 0.713011 0.713011 ... 0.713011
+No other solutions better than 0.713011
+
+Optimal solution found (tolerance 1.00e-04)
+Best objective 7.130111579914e-01, best bound 7.130111579914e-01, gap 0.0000%

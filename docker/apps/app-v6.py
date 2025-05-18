@@ -32,9 +32,10 @@ def is_prime(num):
     return True
 
 
-def prime_count(num,):
-    start_time = time.time()
-    
+def prime_count(num, arrival_time):
+    start_time = time.perf_counter()
+    queue_waiting_time = start_time - arrival_time
+
     # get child pid
     child_pid = os.getpid()
 
@@ -50,20 +51,40 @@ def prime_count(num,):
     user_times_diff = end_user_times - start_user_times
     system_times_diff = end_system_times - start_system_times
 
-    return {"request_num": num, "return_result": sum, "user_cpu_time": user_times_diff, "system_cpu_time": system_times_diff, "real_process_time": time.time() - start_time, "start_process_time": start_time, "finish_time": time.time()}
+    real_process_time = time.perf_counter() - start_time
+    contention_time = real_process_time - (user_times_diff + system_times_diff)
+
+    return {
+        "request_num": num,
+        "task_arrivaled_time": arrival_time,
+        "return_result": sum,
+        "user_cpu_time": user_times_diff,
+        "system_cpu_time": system_times_diff,
+        "real_process_time": real_process_time,
+        "contention_time": max(0, contention_time),
+        "queue_waiting_time": queue_waiting_time,
+        "finish_time": time.time()
+    }
 
 
 
 async def handle(request: web.Request):
     data = await request.json()
 
+    print(f"Get request from {data}")
+    arrival_time = time.perf_counter()
+
+    # Step 1: Simulate Queue Waiting Time
     try:
+        processing_start_time = time.perf_counter()
+
         # Run the blocking task
         loop = asyncio.get_event_loop()
-        
-        # response_data = await loop.run_in_executor(thread_executor, prime_count, data["number"])
-        response_data = await loop.run_in_executor(thread_executor, prime_count, data["number"])
 
+        # response_data = await loop.run_in_executor(thread_executor, prime_count, data["number"])
+        response_data = await loop.run_in_executor(thread_executor, prime_count, data["number"], arrival_time)
+        
+        print(f"Send response to 192.168.0.100")
         # logging.info(f"Current Processing Tasks Sum: {PROCESSING_CNT}")
         return web.json_response(response_data, status=200)
     except Exception as e:
@@ -73,12 +94,12 @@ async def handle(request: web.Request):
 
 def create_app():
     app = web.Application()
-    
+
     # 添加路由
     app.router.add_post('', handle)
-    
+
     return app
 
 if __name__ == '__main__':
     app = create_app()
-    web.run_app(app, host='0.0.0.0', port=8080)
+    web.run_app(app, host="0.0.0.0", port=8081)

@@ -2,8 +2,8 @@
 
 # 设置变量
 IMAGE_NAME="soar009/node-service-image"  # 替换为你的Docker Hub用户名和存储库名
-TAG="v5"  # 你可以根据需要设置镜像标签
-DOCKERFILE_PATH="$HOME/apps/docker/apps/Dockerfile"  # Dockerfile 文件名
+TAG="v6"  # 你可以根据需要设置镜像标签
+DOCKERFILE_PATH="$HOME/apps/docker/apps/Dockerfile-v6"  # Dockerfile 文件名
 CONTEXT_PATH="$HOME/apps/docker/apps"
 
 # 1. 构建 Docker 镜像
